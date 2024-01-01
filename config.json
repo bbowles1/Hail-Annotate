@@ -1,0 +1,11 @@
+{"exomes": {
+    "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/"
+},
+"genomes": {
+    "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht"
+},
+"cache": {
+    "path" : ""
+},
+"testing" : true
+}
