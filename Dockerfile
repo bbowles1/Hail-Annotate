@@ -6,7 +6,7 @@ RUN apk --no-cache add build-base \
     libffi-dev openssl-dev gfortran \
     pkgconfig cmake gcc freetype-dev \
     libpng-dev openblas-dev==0.3.25-r0 \ 
-    libstdc++
+    libstdc++ gcc
 
 # Install and configure Poetry
 RUN pip install poetry==1.7.1
@@ -28,7 +28,7 @@ RUN apk --no-cache add libstdc++ openblas-dev
 WORKDIR /app
 
 # add modules directory to path
-ENV PATH="/app/modules/:${PATH}"
+ENV PYTHONPATH /app/modules
 RUN mkdir /app/tmp/
 
 # Copy the rest of the application code

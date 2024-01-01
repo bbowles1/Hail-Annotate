@@ -10,16 +10,38 @@ import hail as hl
 import os
 import pandas as pd
 import json
-import shutil
+import subprocess
 
+def open_config(config_path):
 
-"""
-For testing:
-mt = mt.filter_rows(mt.locus.contig == '22')
-"""
+    # read json config
+    with open(config_path) as f:
+        config = json.load(f)
+
+    # check for all required keys, dtypes
+    dtypes = {'exomes':dict,
+            'genomes':dict,
+            'cache':dict,
+            'testing':bool}
+
+    keys_check = [i in config.keys() for i in dtypes.keys()]
+    if not all (keys_check):
+        missing = [i for i in dtypes.keys() if i not in config.keys()]
+        raise Exception(f"Input config is missing the following keys: {missing}")
+
+    types_check = [type(config[i]) == dtypes[i] for i in config.keys()]
+    if not all(types_check):
+        improper = [i for i in config.keys() if type(config[i]) != dtypes[i]]
+        for value in improper:
+            print(f"{value} had unexpected type. Expected type {dtypes[value]}, \
+                received type {type(config[value])}.")
+        raise Exception("Improper config data types!")
+    
+    return config
+
 
 def fake_vcf(input_df, 
-             output_dir='/app/tmp/fake_vcf.vcf',
+             output_dir,
              use_chr=True):
     
     # spoof a VCF when passes a df containing CHROM, REF, POS, ALT
@@ -151,11 +173,12 @@ def add_db_annotations(vcf, db, config):
     return vcf
 
     
-def vcf_to_mt(input_df, testing):
+def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
     if is_vcf(input_df):
-        path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], use_chr=False)
+        path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
+                        output_dir=config['cache']['path'], use_chr=False)
     else:
         raise Exception("Input data is missing VCF columns!")
 
@@ -172,7 +195,7 @@ def vcf_to_mt(input_df, testing):
     # https://hail.is/docs/0.2/methods/genetics.html#hail.methods.split_multi
 
     # if testing, create smaller variant subset
-    if testing:
+    if config['testing']:
         vcf = vcf.filter_rows(vcf.locus.contig == '22')
 
 
@@ -189,7 +212,7 @@ def hail_annotate(input_df, output_path, config):
     keyed by variant. Allele frequency > 0.01 is returned as NA.
     """
             
-    vcf = vcf_to_mt(input_df, config['testing'])
+    vcf = vcf_to_mt(input_df, config)
 
     for db in ['exomes', 'genomes']:
         
@@ -207,100 +230,3 @@ def hail_annotate(input_df, output_path, config):
     export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax, vcf.proportion_expressed).rows()
     export.export(output_path, delimiter='\t')
     print(f"Wrote annotated VCF to {output_path}")
-
-
-
-
-
-
-
-
-
-def hail_annotate(input_df,
-                  exomepath = r'/Users/bbowles/Documents/Code/refdata/gnomad/exomes/gnomad.exomes.r2.1.sites.ht',
-                  genomepath = r'/Users/bbowles/Documents/Code/refdata/gnomad/genomes/gnomad.genomes.r2.1.sites.ht',
-                  transcriptpath = r'/Users/bbowles/Documents/Code/refdata/gnomad/proportion_expressed/all.baselevel.021620.ht',
-                  genomes=True,
-                  exomes=True,
-                  pex=True):
-    
-    """
-    Input: Pandas dataframe containing minimum VCF cols
-    
-    Output: Annotated dataframe containing epopmax, gpopmax, and proportion_expressed,
-    keyed by variant. Allele frequency > 0.01 is returned as NA.
-    """
-    
-     
-    # check if VCF cols are present
-    if is_vcf(input_df):
-        path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], use_chr=False)
-        
-    else:
-        raise Exception("Input data is missing VCF columns!")
-
-    # convert input to matrix path
-    matrixpath = "/Users/bbowles/Documents/Code/refdata/tmp/hail_temp_matrix_table.tmp.mt"
-    hl.import_vcf(path).write(matrixpath, overwrite=True)
-    
-    # read matrix table
-    vcf = hl.read_matrix_table(matrixpath)
-    
-    # split mutliallelic entries
-    vcf = hl.split_multi(vcf)
-    # NOTE THAT THIS HANDLES GT INFORMATION ODDLY, SEE DOCS
-    # https://hail.is/docs/0.2/methods/genetics.html#hail.methods.split_multi
-    
-    if exomes:
-        # annotate VCF with exome information
-        exome = hl.read_table(exomepath)
-        vcf = vcf.annotate_rows(efreq=exome[vcf.locus, vcf.alleles].freq.AF[0])
-        vcf = vcf.annotate_rows(epopmax=exome[vcf.locus, vcf.alleles].popmax.AF[0])
-        
-        # filter to entries with AF < 0.1
-        vcf = vcf.filter_rows(vcf.efreq < 0.01, keep=True)
-    
-    if genomes:
-        # annotate vcf with genome information
-        genome = hl.read_table(genomepath)
-        vcf = vcf.annotate_rows(gfreq=genome[vcf.locus, vcf.alleles].freq.AF[0])
-        vcf = vcf.annotate_rows(gpopmax=genome[vcf.locus, vcf.alleles].popmax.AF[0])
-        
-        # filter to entries with AF < 0.1
-        vcf = vcf.filter_rows(vcf.gfreq < 0.01, keep=True)
-    
-    if pex:
-        # annotate with proportion expressed
-        transcript = hl.read_table(transcriptpath)
-        vcf = vcf.annotate_rows(proportion_expressed=transcript[vcf.locus].mean_proportion)
-    
-    
-    # construct a variant expression
-    vcf = vcf.annotate_rows(variant=vcf.locus.contig + ':' + hl.format('%s', vcf.locus.position) + vcf.alleles[0] + '>' + vcf.alleles[1])
-    
-    # key by variant expression, drop other keys
-    vcf = vcf.key_rows_by(vcf.variant)
-    
-    # export table
-    exportpath = '/Users/bbowles/Documents/Code/refdata/tmp/hail_annotated_data.tmp.tsv'
-    
-    # make row selections
-    if all([exomes,genomes,pex]):
-        export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax, vcf.proportion_expressed).rows()
-    elif all([exomes,genomes]):
-        export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
-    elif all([exomes,pex]):
-        export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.proportion_expressed).rows()
-    elif all([genomes,pex]):
-        export = vcf.select_rows(vcf.gfreq, vcf.gpopmax, vcf.proportion_expressed).rows()
-    elif genomes:
-        export = vcf.select_rows(vcf.gfreq, vcf.gpopmax).rows()
-    elif exomes:
-        export = vcf.select_rows(vcf.efreq, vcf.epopmax).rows()
-    elif pex:
-        export = vcf.select_rows(vcf.proportion_expressed).rows()
-    
-    export.export(exportpath, delimiter='\t')
-
-    # read result
-    return (pd.read_csv(exportpath, sep="\t"))
