@@ -221,7 +221,7 @@ def hail_annotate(input_df, output_path, config):
             
     vcf = vcf_to_mt(input_df, config)
 
-    for db in ['exomes']:
+    for db in ['exomes','genomes']:
         
         print(f"Adding annotations for: {db}")
         vcf = add_db_annotations(vcf, db, config)
@@ -234,7 +234,7 @@ def hail_annotate(input_df, output_path, config):
     vcf = vcf.key_rows_by(vcf.variant)
     
     # export table
-    export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax, vcf.proportion_expressed).rows()
+    export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
     export.export(output_path, delimiter='\t')
     print(f"Wrote annotated VCF to {output_path}")
 
