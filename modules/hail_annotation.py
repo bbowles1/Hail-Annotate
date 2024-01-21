@@ -121,7 +121,7 @@ def fake_vcf(input_df,
     
     # copy newfile to hdfs
     hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-put', newfile, 'hdfs:///tmp/'], check=True)
+    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
 
     # return output path for reference
     return(hdfs_path)
@@ -183,7 +183,7 @@ def vcf_to_mt(input_df, config):
     
     # download from hdfs storage
     local_path = '/tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-get', hdfs_path, local_path], check=True)
+    subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
     
 
     # convert input to matrix table
