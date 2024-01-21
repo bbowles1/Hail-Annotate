@@ -11,6 +11,7 @@ import os
 import pandas as pd
 import json
 import subprocess
+import argparse
 
 def open_config(config_path):
 
@@ -104,7 +105,7 @@ def fake_vcf(input_df,
     
     # set output path, write file
     output_path = os.path.join(output_dir, "fake_vcf.tmp.vcf")
-    input_df.to_csv(output_path, sep='\t', index=False)  
+    input_df.to_csv(output_path, sep='\t', index=False)
 
     
     # inject file format info into metadata    
@@ -112,17 +113,18 @@ def fake_vcf(input_df,
     command = 'sed -e \'1i\##fileformat=VCFv4.2\' ' + output_path + ' > ' + newfile
     print(command)
     subprocess.check_output(command, shell=True)
-    
+
     # clean up tmp file
     command = 'rm ' + output_path
     print(command)
     subprocess.check_output(command, shell=True)
     
-    # reformat output path
-    output_path = output_path.replace('.tmp','')
-    
+    # copy newfile to hdfs
+    hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
+    subprocess.run(['hadoop', 'dfs', '-put', newfile, 'hdfs:///tmp/'], check=True)
+
     # return output path for reference
-    return(output_path)
+    return(hdfs_path)
 
 
 def is_vcf(input_df):
@@ -176,18 +178,21 @@ def add_db_annotations(vcf, db, config):
 def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
-    if is_vcf(input_df):
-        path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
-                        output_dir=config['cache']['path'], use_chr=False)
-    else:
-        raise Exception("Input data is missing VCF columns!")
+    hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
+                    output_dir=config['cache']['path'], use_chr=False)
+    
+    # download from hdfs storage
+    local_path = '/tmp/fake_vcf.vcf'
+    subprocess.run(['hadoop', 'dfs', '-get', hdfs_path, local_path], check=True)
+    
 
     # convert input to matrix table
-    matrixpath = os.path.join(config['cache']['path'], "hail_temp_matrix_table.tmp.mt")
-    hl.import_vcf(path).write(matrixpath, overwrite=True)
+    #matrixpath = os.path.join(config['cache']['path'], "hail_temp_matrix_table.tmp.mt")
+    #hl.import_vcf(local_path).write(matrixpath, overwrite=True)
     
     # read matrix table
-    vcf = hl.read_matrix_table(matrixpath)
+    #vcf = hl.read_matrix_table(matrixpath)
+    vcf = hl.read_matrix_table(local_path)
     
     # split mutliallelic entries
     vcf = hl.split_multi(vcf)
@@ -214,7 +219,7 @@ def hail_annotate(input_df, output_path, config):
             
     vcf = vcf_to_mt(input_df, config)
 
-    for db in ['exomes', 'genomes']:
+    for db in ['exomes']:
         
         print(f"Adding annotations for: {db}")
         vcf = add_db_annotations(vcf, db, config)
@@ -230,3 +235,40 @@ def hail_annotate(input_df, output_path, config):
     export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax, vcf.proportion_expressed).rows()
     export.export(output_path, delimiter='\t')
     print(f"Wrote annotated VCF to {output_path}")
+
+
+def main(input_path, output_path, config_path):
+
+    # import config
+    config = open_config(config_path)
+    print("Imported config!")
+
+    # read VCF as pandas df
+    vcf = pd.read_csv(input_path, sep='\t')
+
+    # run annotation script
+    hail_annotate(vcf, output_path, config)
+
+    # cleanup all files in cache
+    # remove all files in config['cache']
+
+    print(f"Run completed. Annotated file written to {output_path}")
+
+
+if __name__ == '__main__':
+
+    # Instantiate the parser
+    parser = argparse.ArgumentParser(description='Use cloud infrastructure to \
+                                     add Hail annotations to an input VCF file.')
+    
+    # Get arguments
+    parser.add_argument('--input', type=str,
+                        help='Input VCF file with minimum required fields CHROM, POS, REF, ALT.')
+    parser.add_argument('--output', type=str,
+                        help='Output path for tab-delimited file.')
+    parser.add_argument('--config', type=str,
+                        help='Config with annotation parameters.')
+    args = parser.parse_args()
+
+    # execute main
+    main(args.input, args.output, args.config)

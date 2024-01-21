@@ -6,7 +6,7 @@ RUN apk --no-cache add build-base \
     libffi-dev openssl-dev gfortran \
     pkgconfig cmake gcc freetype-dev \
     libpng-dev openblas-dev==0.3.25-r0 \ 
-    libstdc++ gcc
+    libstdc++
 
 # Install and configure Poetry
 RUN pip install poetry==1.7.1
