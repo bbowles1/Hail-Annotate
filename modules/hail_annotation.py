@@ -238,6 +238,11 @@ def hail_annotate(input_df, output_path, config):
     export.export(output_path, delimiter='\t')
     print(f"Wrote annotated VCF to {output_path}")
 
+    # upload file
+    dest_bucket = 'gs://hail-annotation-scripts/Hail-Annotate/'
+    subprocess.run(['gsutil', '-m', 'cp', '-r', output_path, dest_bucket], check=True)
+    print(f'File uploaded to {os.path.join(dest_bucket, os.path.basename(output_path))}')
+
 
 def main(input_path, output_path, config_path):
 
