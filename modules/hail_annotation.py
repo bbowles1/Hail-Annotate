@@ -192,7 +192,7 @@ def vcf_to_mt(input_df, config):
     
     # read matrix table
     #vcf = hl.read_matrix_table(matrixpath)
-    vcf = hl.read_matrix_table(local_path)
+    vcf = hl.import_vcf(local_path)
     
     # split mutliallelic entries
     vcf = hl.split_multi(vcf)
@@ -202,6 +202,8 @@ def vcf_to_mt(input_df, config):
     # if testing, create smaller variant subset
     if config['testing']:
         vcf = vcf.filter_rows(vcf.locus.contig == '22')
+
+    return vcf
 
 
 def hail_annotate(input_df, output_path, config):
