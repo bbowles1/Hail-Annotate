@@ -7,5 +7,5 @@
 "cache": {
     "path" : "/tmp/"
 },
-"testing" : true
+"testing" : false
 }
