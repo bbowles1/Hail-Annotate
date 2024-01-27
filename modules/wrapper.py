@@ -4,8 +4,13 @@
 import subprocess
 import os
 
-input_vcf = '/tmp/Hail-Annotate/test_files/test.vcf'
-output_path = 'hdfs:///tmp/output.tsv'
+input_vcf = '/tmp/Hail-Annotate/whiffin_simulated_variants_low_likelihood.tsv.gz'
+output_path = 'hdfs:///tmp/whiffin_simulated_variants_low_likelihood_annotated.tsv'
+
+def check_output_path(output_path):
+    if output_path.split('/')[0] != 'hdfs:':
+        raise Exception("Output_path must be HDFS!")
+
 
 # copy everything to local /tmp
 def download_data():
@@ -45,6 +50,7 @@ def upload_data(output_path):
 
 
 if __name__ == "__main__":
+    check_output_path(output_path)
     download_data()
     execute_script()
-    upload_data()
+    upload_data(output_path)
