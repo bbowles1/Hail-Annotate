@@ -1,5 +1,8 @@
-# Hail-Annotate
-Use cloud infrastructure to annotate input VCF files with GnomAD allele frequency information.
+Hail-Annotate
+=======
+
+**Hail-Annotate** is a Python library that annotates variant call format (VCF) files with GnomAD allele frequency information.
+This repo assumes the user is familiar with the variant call format (link) and the GnomAD Project (link).
 
 Paths for GnomAD v2.1.1 data hosted on GCP:
 - Project Bucket: gs://gcp-public-data--gnomad/release/
