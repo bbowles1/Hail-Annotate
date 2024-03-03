@@ -9,11 +9,23 @@ Created on Fri Jul 21 09:13:35 2023
 import hail as hl
 import os
 import pandas as pd
+import numpy as np
 import json
 import subprocess
 import argparse
 
 def open_config(config_path):
+    """This function is designed to parse an input JSON for 
+    parameters needed to execute a GnomAD annotation task.
+
+    :param config_path: Path to config.json file within a Google DataProc instance.
+    :type config_path: str
+    :raises ValueError: Input config is missing required keys.
+    :raises ValueError: Config keys contain improper data types.       
+    :return: 
+        Dictionary of parsed JSON keys defining annotation workflow parameters.
+    :rtype: dict
+    """
 
     # read json config
     with open(config_path) as f:
@@ -28,7 +40,7 @@ def open_config(config_path):
     keys_check = [i in config.keys() for i in dtypes.keys()]
     if not all (keys_check):
         missing = [i for i in dtypes.keys() if i not in config.keys()]
-        raise Exception(f"Input config is missing the following keys: {missing}")
+        raise ValueError(f"Input config is missing the following keys: {missing}")
 
     types_check = [type(config[i]) == dtypes[i] for i in config.keys()]
     if not all(types_check):
@@ -36,7 +48,7 @@ def open_config(config_path):
         for value in improper:
             print(f"{value} had unexpected type. Expected type {dtypes[value]}, \
                 received type {type(config[value])}.")
-        raise Exception("Improper config data types!")
+        raise ValueError("Improper config data types!")
     
     return config
 
@@ -44,12 +56,23 @@ def open_config(config_path):
 def fake_vcf(input_df, 
              output_dir,
              use_chr=True):
-    
-    # spoof a VCF when passes a df containing CHROM, REF, POS, ALT
-    # requires a tab-delimited input file
-    # uses chr# annotation for CHROM field
-    # cannot fool programs that check for contigs
-    # pass ostype = "mac" or "linux" for different shell commands to insert header
+    """Spoof a VCF file structure when passed an input DataFrame containing CHROM, REF, POS, ALT columns. 
+    For all columns in 'ID', 'QUAL', 'FILTER', 'INFO', 'FORMAT', adds any columns which are not present.
+    Added columns will be contain empty data. This script will overwrite any existing information in the 
+    VCF header, ie contig information.
+
+    :param input_df: Pandas DataFrame with 'CHROM', 'REF', 'POS', 'ALT' columns.
+    :type input_df: pd.DataFrame
+
+    :param output_dir: Output directory to write VCF to.
+    :type output_dir: str
+
+    :param use_chr: If True, appends a 'chr' prefic to all CHROM entries if not already present.
+    :type use_chr: bool
+
+    :raises pd.errors.ParserError: Input DataFrame is missing required columns.
+    :raises pd.errors.ParserError: Required input columns contain missing data.
+    """    
     
     vcfcols = ['CHROM', 'POS', 'ID','REF','ALT'	,'QUAL','FILTER','INFO','FORMAT']
     
@@ -128,11 +151,12 @@ def fake_vcf(input_df,
 
 
 def is_vcf(input_df):
-    
-    """
-    Return True if input contains minimum VCF columns
-    (CHROM, POS, REF, ALT)
-    """
+    """Return True if input contains minimum VCF columns
+    (CHROM, POS, REF, ALT).
+
+    :return: True if VCF file contains minimum required headers.
+    :rtype: bool
+    """    
     
     # VCF cols are missing
     if not all([i in input_df.columns for i in ["CHROM","POS","REF","ALT"]]):
@@ -143,6 +167,21 @@ def is_vcf(input_df):
     
 
 def add_db_annotations(vcf, db, config):
+    """Annotates input VCF with GnomAD data specified by the 
+    `db` parameter.
+
+    :param vcf: VCF file, which has been given all required keys and converted to a Hail table.
+    :type vcf: hail.Table
+
+    :param db: Key matching a GnomAD database listed within the config.json, either "exomes" or "genomes."
+    :type db: str
+
+    :param config: path to config.json containing GnomAD database cloud bucket paths.
+    :type config: str
+
+    :return: Hail Table annotated with 
+    :rtype: hail.Table
+    """    
                         
     if db == "exomes":
         # annotate VCF with exome information
@@ -168,20 +207,29 @@ def add_db_annotations(vcf, db, config):
         # annotate with proportion expressed
         ht = hl.read_table(config['proportion_expressed']['path'])
         vcf = vcf.annotate_rows(proportion_expressed=ht[vcf.locus].mean_proportion)
-
-    # cache result
-    #vcf.rows().export(os.path.join(config['cache']['path'], "hail_cache.tmp.tsv"))
         
     return vcf
 
     
 def vcf_to_mt(input_df, config):
+    """Converts an input VCF with minimum required columns 
+    (CHROM, POS, REF, ALT) to a Hail table.
+
+    :param input_df: Pandas dataframe with minimal required VCF columns
+    :type input_df: pd.DataFrame
+
+    :param config: Path to config containing tmp directory to use for caching VCF file.
+    :type config: str
+
+    :return: VCF converted to hail.Table (function name is a misnomer)
+    :rtype: hail.Table
+    """
 
     # check if VCF cols are present in input df
     hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
                     output_dir=config['cache']['path'], use_chr=False)
     
-    # download from hdfs storage
+    # download from hdfs storage to dataproc worker node
     local_path = '/tmp/fake_vcf.vcf'
     subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
     
@@ -207,17 +255,19 @@ def vcf_to_mt(input_df, config):
 
 
 def hail_annotate(input_df, output_path, config):
-    
-    """
-    Input: 
-        input_df: Pandas dataframe containing minimum VCF cols
-        config_path: config .json with the structure {"db_name":{"local":"","remote":""},}
-            Json must contain keys ["exomes","genomes","proportion_expressed"]
-        af_cutoff: float, output will only contains variants with AF < cutoff
-    
-    Output: Annotated dataframe containing epopmax, gpopmax, and proportion_expressed,
+    """Runs Hail annotation scripts for all input GnomAD databases.
+
+    :param input_df: Pandas Dataframe containing minimum required VCF columns (CHROM, POS, REF, ALT)
+    :type input_df: pd.DataFrame
+
+    :param output_path: Output path on DataProc instance to use for writing annotated data. 
+    Output data contains epopmax, gpopmax, and proportion_expressed,
     keyed by variant. Allele frequency > 0.01 is returned as NA.
-    """
+    :type output_path: str
+
+    :param config: Path to config JSON file containing workflow parameters.
+    :type config: str
+    """    
             
     vcf = vcf_to_mt(input_df, config)
 
@@ -240,6 +290,18 @@ def hail_annotate(input_df, output_path, config):
 
 
 def main(input_path, output_path, config_path):
+    """Wrapper which opens config path, reads input VCF, 
+    and launches annotation script.
+
+    :param input_path: Path (on DataProc instance) to input, tab-delimited file with CHROM, POS, REF, ALT columns.
+    :type input_path: str
+
+    :param output_path: Output path (on DataProc instance) to use for writing output, annotated data.
+    :type output_path: str
+
+    :param config_path: Path (on DataProc instance) to config JSON file containing workflow parameters.
+    :type config_path: str
+    """
 
     # import config
     config = open_config(config_path)
