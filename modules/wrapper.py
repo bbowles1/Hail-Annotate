@@ -8,12 +8,21 @@ input_vcf = '/tmp/Hail-Annotate/whiffin_simulated_variants_low_likelihood.tsv.gz
 output_path = 'hdfs:///tmp/whiffin_simulated_variants_low_likelihood_annotated.tsv'
 
 def check_output_path(output_path):
+    """Check that output path is to HDFS storage.
+
+    :param output_path: Output path on DataProc HDFS storage to use for writing data.
+    :type output_path: str
+
+    :raises Exception: Raises Exception of output_path does not contain 'hdfs.'
+    """
+
     if output_path.split('/')[0] != 'hdfs:':
         raise Exception("Output_path must be HDFS!")
 
 
 # copy everything to local /tmp
 def download_data():
+
     source_bucket = 'gs://hail-annotation-scripts/Hail-Annotate'
     destination_path = '/tmp/'
 
@@ -22,6 +31,7 @@ def download_data():
 
 
 def execute_script():
+
     # run main command
     command = [
         'python',
