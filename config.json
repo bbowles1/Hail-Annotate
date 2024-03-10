@@ -1,18 +1,18 @@
 {"gnomad_paths" :
     {
         "exomes": {
-            "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/",
+            "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/",
             "type" : "google-cloud-path"
         },
         "genomes": {
-            "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht/",
+            "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht/",
             "type" : "google-cloud-path"
         }
     },
 "dataproc_paths" :
     {
         "local_cache": {
-            "path" : "/tmp/",
+            "value" : "/tmp/",
             "type" : "local-path"
         }
     },
@@ -27,11 +27,11 @@
             "type" : "float"
         },
         "input_vcf" : {
-            "path" : "gs://hail-annotation-scripts/test.vcf",
+            "value" : "gs://hail-annotation-scripts/test.vcf",
             "type" : "google-cloud-path"
         },
         "output_path" : {
-            "path" : "gs://hail-annotation-scripts/test.annotated.vcf",
+            "value" : "gs://hail-annotation-scripts/test.annotated.vcf",
             "type" : "google-cloud-path"
         }
     }
