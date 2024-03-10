@@ -18,7 +18,14 @@
     },
 "script_params" : 
     {
-        "testing" : false,
+        "testing" : {
+            "value": false,
+            "type" : "boolean"
+        },
+        "allele-frequency-cutoff" : {
+            "value" : 0.1,
+            "type" : "float"
+        },
         "input_vcf" : {
             "path" : "gs://hail-annotation-scripts/test.vcf",
             "type" : "google-cloud-path"
