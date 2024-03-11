@@ -1,22 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
-Goal is to test our ability to directly read a config from a Google DataProc instance
-
-1. check that google cloud path is valid
-2. check that config fields are expected
-3. Check that config types are expected.
+A set of utilities that read in the Hail annotation config
+and perform checks for required fields and their types.
 """
 
 from google.cloud import storage
-from google.cloud.storage.utils import parse_gcs_path
 from google.cloud.exceptions import NotFound, Forbidden
 import json
 import re
+import os
+
+
+def parse_gcs_path(gcs_path):
+    """Get bucket and blob from a GCS path
+
+    :param gcs_path: GCS path with gs://bucket/blob.file format
+    :type gcs_path: str
+    :return: tuple with bucket, blob paths as strings
+    :rtype: tuple
+    """    
+    gcs_path  = gcs_path.replace('gs://','')
+    bucket = os.path.dirname(gcs_path)
+    blob = os.path.basename(gcs_path)
+    return bucket, blob
 
 
 def is_valid_gcs_path(gcs_path):
@@ -97,8 +105,8 @@ def load_config(gcs_path):
 
     # connect to bucket
     storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(blob_name)
+    bucket = storage_client.bucket(bucket)
+    blob = bucket.blob(blob)
 
     # read json
     with blob.open("r") as f:
@@ -210,10 +218,10 @@ def check_config_types(config):
 #  | |\/| | / /\ \   | | | . ` |  #
 #  | |  | |/ ____ \ _| |_| |\  |  #
 #  |_|  |_/_/    \_\_____|_| \_|  #
+#                                 #
 # =============================== #
 
-
-                              
+     
 def import_config(gcs_path):
 
     # check that google cloud path is valid
@@ -233,6 +241,3 @@ def import_config(gcs_path):
     check_config_types(config)
 
     return config
-
-config = import_config('gs://hail-annotation-scripts/config.json')
-print(config)
