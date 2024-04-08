@@ -451,8 +451,9 @@ def add_db_annotations(vcf, db, config):
         )
 
         # drop and rename columns
-        vcf = vcf.drop('efreq', 'epopmax')
-        vcf = vcf.rename({'efreq_filled': 'efreq', 'epopmax_filled': 'epopmax'})
+        vcf = vcf.drop('gfreq', 'gpopmax')
+        vcf = vcf.rename({'gfreq_filled': 'gfreq', 'gpopmax_filled': 'gpopmax'})
+
         # filter to custom allele frequency
         vcf = vcf.filter_rows(vcf.gfreq < af_cutoff, keep=True)
         logger.debug(f"BRADLOG: Filtering on allele frequency using 'gfreq' field. Output rows: {vcf.count()}.")
