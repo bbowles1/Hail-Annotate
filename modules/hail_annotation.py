@@ -6,51 +6,260 @@ Created on Fri Jul 21 09:13:35 2023
 @author: bbowles
 """
 
-import hail as hl
+from google.cloud import storage
+from google.cloud.exceptions import NotFound, Forbidden
+import json
+import re
 import os
+
+import hail as hl
 import pandas as pd
 import numpy as np
-import json
 import subprocess
 import argparse
 
-def open_config(config_path):
-    """This function is designed to parse an input JSON for 
-    parameters needed to execute a GnomAD annotation task.
+# from config_utils import import_config
 
-    :param config_path: Path to config.json file within a Google DataProc instance.
-    :type config_path: str
-    :raises ValueError: Input config is missing required keys.
-    :raises ValueError: Config keys contain improper data types.       
-    :return: 
-        Dictionary of parsed JSON keys defining annotation workflow parameters.
-    :rtype: dict
+
+# ====================================== #
+#    ____ ___  _   _ _____ ___ ____      #
+#   / ___/ _ \| \ | |  ___|_ _/ ___|     #
+#  | |  | | | |  \| | |_   | | |  _      #
+#  | |__| |_| | |\  |  _|  | | |_| |     # 
+#   \____\___/|_| \_|_|   |___\____|     #
+#                                        #
+# ====================================== #
+
+
+def parse_gcs_path(gcs_path):
+    """Get bucket and blob from a GCS path
+
+    :param gcs_path: GCS path with gs://bucket/blob.file format
+    :type gcs_path: str
+    :return: tuple with bucket, blob paths as strings
+    :rtype: tuple
+    """    
+    gcs_path  = gcs_path.replace('gs://','')
+    bucket = os.path.dirname(gcs_path)
+    blob = os.path.basename(gcs_path)
+    return bucket, blob
+
+
+def is_valid_gcs_path(gcs_path):
+    """Check that input string is a valid gcs_path
+
+    :param gcs_path: String path to gcs file.
+    :type gcs_path: str
+    :return: True if string is a valid gcs_path
+    :rtype: bool
+    """    
+    pattern = r'^gs://[a-zA-Z0-9.\-_]{1,255}/.*$'
+    return re.match(pattern, gcs_path) is not None
+
+
+def check_bucket_exists(bucket_name):
+    """Check if a GCS bucket exists.
+
+    :param bucket_name: Name of target bucket with "bucket-name" format (no gs:// prefix)
+    :type bucket_name: str
+    :return: True if bucket exists
+    :rtype: bool
     """
 
-    # read json config
-    with open(config_path) as f:
+    storage_client = storage.Client()
+    try:
+        bucket = storage_client.get_bucket(bucket_name)
+        return True
+    except NotFound:
+        return False
+
+
+def check_bucket_permission(bucket_name):
+    """Check if current account has permission to read bucket
+
+    :param bucket_name: Name of target bucket with "bucket-name" format (no gs:// prefix)
+    :type bucket_name: str
+    :return: True if bucket exists
+    :rtype: bool
+    """
+
+    storage_client = storage.Client()
+    try:
+        bucket = storage_client.get_bucket(bucket_name)
+        # Attempt to list blobs in the bucket to check permission
+        blobs = list(bucket.list_blobs())
+        return True
+    except Forbidden:
+        return False
+
+
+def check_gcs_path(gcs_path):
+    """Check if a gs bucket exists and you have permission to access it
+
+    :param gcs_path: gcs_path to bucket (gs://path-to-bucket/)
+    :type gcs_path: str
+    """
+
+    bucket_name, _ = parse_gcs_path(gcs_path)
+    exists = check_bucket_exists(bucket_name)
+    has_permission = check_bucket_permission(bucket_name)
+    if not exists:
+        raise Exception("Cannot locate input config bucket!")
+    if not has_permission:
+        raise Exception("This service account does not have permission to read your input bucket!")
+
+    return exists, has_permission
+
+
+def load_config(gcs_path):
+    """Read input config for a Hail annotation project.
+
+    :param gcs_path: Path to Google Cloud config.json file
+    :type gcs_path: str
+    """
+
+    # parse bucket/blob format
+    bucket, blob = parse_gcs_path(gcs_path)
+
+    # connect to bucket
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket)
+    blob = bucket.blob(blob)
+
+    # read json
+    with blob.open("r") as f:
         config = json.load(f)
 
-    # check for all required keys, dtypes
-    dtypes = {'exomes':dict,
-            'genomes':dict,
-            'cache':dict,
-            'testing':bool}
-
-    keys_check = [i in config.keys() for i in dtypes.keys()]
-    if not all (keys_check):
-        missing = [i for i in dtypes.keys() if i not in config.keys()]
-        raise ValueError(f"Input config is missing the following keys: {missing}")
-
-    types_check = [type(config[i]) == dtypes[i] for i in config.keys()]
-    if not all(types_check):
-        improper = [i for i in config.keys() if type(config[i]) != dtypes[i]]
-        for value in improper:
-            print(f"{value} had unexpected type. Expected type {dtypes[value]}, \
-                received type {type(config[value])}.")
-        raise ValueError("Improper config data types!")
-    
     return config
+
+
+def check_fields(config):
+    """Check that the input config has all expected fields.
+
+    :param config: Imported config file.
+    :type config: dict
+    :raises Exception: Main level of json is missing keys.
+    :raises Exception: GnomAD Paths are missing from input json.
+    :raises Exception: Script parameters are missing from input json.
+    """    
+    
+    # define expected fields
+    level1_keys = ['gnomad-paths','script-params']
+    gnomad_keys = ['exomes','genomes']
+    script_params = ['testing', 'allele-frequency-cutoff', 'input-vcf', 'output-name']
+
+    missing_keys = [i for i in level1_keys if i not in config.keys()]
+    if missing_keys:
+        except_str = f"The following keys are missing from first level of your config: {', '.join(missing_keys)}."
+        raise Exception(except_str)
+        
+        
+    missing_keys = [i for i in gnomad_keys if i not in config['gnomad-paths'].keys()]
+    if missing_keys:
+        except_str = f"The following keys are missing from the 'gnomad_keys' level of your config: {', '.join(missing_keys)}."
+        raise Exception(except_str)  
+        
+        
+    missing_keys = [i for i in script_params if i not in config['script-params'].keys()]
+    if missing_keys:
+        except_str = f"The following keys are missing from the 'script-params' level of your config: {', '.join(missing_keys)}."
+        raise Exception(except_str)   
+
+
+
+def check_types(configvalue, configtype):
+    """Check that config types conform to expected values.
+
+    :param configvalue: 'value' field of config leaf node.
+    :type configvalue: object (variable type)
+    :param configtype: Expected type of config ('google-cloud-path','float','boolean','hdfs-path')
+    :type configtype: str
+    :raises Exception: Invalid 'type' field was provided.
+    :raises Exception: Invalid gcs_path was provided.
+    :raises Exception: Input config value must be a float.
+    :raises Exception: Input config value must be a boolean.
+    :raises Exception: Input config value must be a string.
+    """    
+    types = ['google-cloud-path','float','boolean', 'string']
+    
+    if configtype not in types:
+        raise Exception(f"Type {configtype} is invalid! Expecting values in: {types}.")
+        
+    if configtype == 'google-cloud-path':
+        if not is_valid_gcs_path(configvalue):
+            raise Exception(f"Input path {configvalue} is not a valid GCS path!")
+            
+    if configtype == 'float':
+        if not isinstance(configvalue, float):
+            raise Exception(f"Input config value {configvalue} must be a float!")
+            
+    if configtype == 'boolean':
+        if not isinstance(configvalue, bool):
+            raise Exception(f"Input config value {configvalue} must be True or False!")
+        
+    if configtype == 'string':
+        if not isinstance(configvalue, str):
+            raise Exception(f"Input config value {configvalue} must be string!")
+
+def check_config_types(config):
+    """Check input config for expected data types.
+
+    :param config: Loaded config.json file.
+    :type config: dict
+    """    
+
+    # loop over config structure
+    for level1key in config.keys():
+        for level2key in config[level1key].keys():
+            if 'type' in config[level1key][level2key].keys():
+
+                # extract value, type
+                configvalue = config[level1key][level2key]['value']
+                configtype = config[level1key][level2key]['type']
+                # check that value is expected type
+                check_types(configvalue, configtype)
+
+     
+def import_config(gcs_path):
+    """Main function of this file. Wraps basic type, permission
+    checks on input path, then loads the config.
+
+    :param gcs_path: Input path to a config.json on Google Cloud.
+    :type gcs_path: str
+    :raises Exception: Input path is not a valid GCS path.
+    :raises Exception: Cannot open GCS path (either does not exist or you do not have permission)
+    :return: loaded config
+    :rtype: dict
+    """    
+
+    # check that google cloud path is valid
+    if not is_valid_gcs_path:
+        raise Exception("Invalid GCS-path to config!")
+    exists, has_permissions = check_gcs_path(gcs_path)
+    if not all([exists, has_permissions]):
+        raise Exception(f"Cannot open GCS-path. Bucket exists/is visible: {exists}. Account has permissions to read bucket: {has_permissions}.")
+    
+    # read config
+    print(f'Loading config from {gcs_path}')
+    config = load_config(gcs_path)
+
+    # check that config fields are expected
+    check_fields(config)
+
+    # Check that config types are expected.
+    check_config_types(config)
+
+    return config
+
+
+# =============================== #               
+#   _   _    _    ___ _           #
+#  | | | |  / \  |_ _| |          #
+#  | |_| | / _ \  | || |          #
+#  |  _  |/ ___ \ | || |___       #
+#  |_| |_/_/   \_\___|_____|      #
+#                                 #
+# ================================#
 
 
 def fake_vcf(input_df, 
@@ -182,30 +391,76 @@ def add_db_annotations(vcf, db, config):
     :return: Hail Table annotated with 
     :rtype: hail.Table
     """    
+
+    # set af cutoff for exome and genome frequency (all subpopulations)
+    af_cutoff = config['script-params']['allele-frequency-cutoff']['value']
                         
     if db == "exomes":
         # annotate VCF with exome information
-        ht = hl.read_table(config['exomes']['path'])
+        ht = hl.read_table(config['gnomad-paths']['exomes']['value'])
+        logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(efreq=ht[vcf.locus, vcf.alleles].freq.AF[0])
+        logger.debug(f"BRADLOG: Annotated rows with 'efreq' field. Output rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(epopmax=ht[vcf.locus, vcf.alleles].popmax.AF[0])
+        logger.debug(f"BRADLOG: Annotated rows with 'epopmax' field. Output rows: {vcf.count()}.")
         
-        # filter to entries with AF < 0.1
-        vcf = vcf.filter_rows(vcf.efreq < 0.01, keep=True)
+        # fill missing values in efreq, epopmax columns
+        vcf = vcf.annotate_entries(
+            efreq_filled = hl.if_else(
+                hl.is_missing(vcf.efreq),
+                0.0,
+                vcf.efreq
+            ),
+            epopmax_filled = hl.if_else(
+                hl.is_missing(vcf.epopmax),
+                0.0,
+                vcf.epopmax
+            )
+        )
+
+        # drop and rename columns
+        vcf = vcf.drop('efreq', 'epopmax')
+        vcf = vcf.rename({'efreq_filled': 'efreq', 'epopmax_filled': 'epopmax'})
+
+        # filter to custom allele frequency
+        vcf = vcf.filter_rows(vcf.efreq < af_cutoff, keep=True)
+        logger.debug(f"BRADLOG: Filtering on allele frequency using 'efreq' field. Output rows: {vcf.count()}.")
         
     if db == "genomes":
         
         # annotate vcf with genome information
-        ht = hl.read_table(config['genomes']['path'])
+        ht = hl.read_table(config['gnomad-paths']['genomes']['value'])
+        logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(gfreq=ht[vcf.locus, vcf.alleles].freq.AF[0])
+        logger.debug(f"BRADLOG: Annotated rows with 'gfreq' field. Output rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(gpopmax=ht[vcf.locus, vcf.alleles].popmax.AF[0])
-        
-        # filter to entries with AF < 0.1
-        vcf = vcf.filter_rows(vcf.gfreq < 0.01, keep=True)
+        logger.debug(f"BRADLOG: Annotated rows with 'gpopmax' field. Output rows: {vcf.count()}.")
+
+        # fill missing values in efreq, epopmax columns
+        vcf = vcf.annotate_entries(
+            gfreq_filled = hl.if_else(
+                hl.is_missing(vcf.gfreq),
+                0.0,
+                vcf.gfreq
+            ),
+            gpopmax_filled = hl.if_else(
+                hl.is_missing(vcf.gpopmax),
+                0.0,
+                vcf.gpopmax
+            )
+        )
+
+        # drop and rename columns
+        vcf = vcf.drop('efreq', 'epopmax')
+        vcf = vcf.rename({'efreq_filled': 'efreq', 'epopmax_filled': 'epopmax'})
+        # filter to custom allele frequency
+        vcf = vcf.filter_rows(vcf.gfreq < af_cutoff, keep=True)
+        logger.debug(f"BRADLOG: Filtering on allele frequency using 'gfreq' field. Output rows: {vcf.count()}.")
 
     if db == "proportion_expressed":
         
         # annotate with proportion expressed
-        ht = hl.read_table(config['proportion_expressed']['path'])
+        ht = hl.read_table(config['gnomad-paths']['proportion_expressed']['path'])
         vcf = vcf.annotate_rows(proportion_expressed=ht[vcf.locus].mean_proportion)
         
     return vcf
@@ -227,16 +482,11 @@ def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
     hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
-                    output_dir=config['cache']['path'], use_chr=False)
+                    output_dir='/tmp/', use_chr=False)
     
     # download from hdfs storage to dataproc worker node
     local_path = '/tmp/fake_vcf.vcf'
     subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
-    
-
-    # convert input to matrix table
-    #matrixpath = os.path.join(config['cache']['path'], "hail_temp_matrix_table.tmp.mt")
-    #hl.import_vcf(local_path).write(matrixpath, overwrite=True)
     
     # read matrix table
     #vcf = hl.read_matrix_table(matrixpath)
@@ -248,13 +498,13 @@ def vcf_to_mt(input_df, config):
     # https://hail.is/docs/0.2/methods/genetics.html#hail.methods.split_multi
 
     # if testing, create smaller variant subset
-    if config['testing']:
+    if config['script-params']['testing']['value']:
         vcf = vcf.filter_rows(vcf.locus.contig == '22')
 
     return vcf
 
 
-def hail_annotate(input_df, output_path, config):
+def hail_annotate(input_df, config):
     """Runs Hail annotation scripts for all input GnomAD databases.
 
     :param input_df: Pandas Dataframe containing minimum required VCF columns (CHROM, POS, REF, ALT)
@@ -285,11 +535,12 @@ def hail_annotate(input_df, output_path, config):
     
     # export table
     export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
+    output_path = config['script-params']['output-name']['value']
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
 
 
-def main(input_path, output_path, config_path):
+def execute_annotation(config_path):
     """Wrapper which opens config path, reads input VCF, 
     and launches annotation script.
 
@@ -304,19 +555,30 @@ def main(input_path, output_path, config_path):
     """
 
     # import config
-    config = open_config(config_path)
-    print("Imported config!")
+    config = import_config(config_path)
+    print("Imported config.")
 
     # read VCF as pandas df
-    vcf = pd.read_csv(input_path, sep='\t')
+    vcf = pd.read_csv(config['script-params']['input-vcf']['value'], sep='\t')
 
     # run annotation script
-    hail_annotate(vcf, output_path, config)
+    hail_annotate(vcf, config)
 
-    # cleanup all files in cache
-    # remove all files in config['cache']
+    # parse output path from config
+    output_path = config['script-params']['output-name']['value']
 
     print(f"Run completed. Annotated file written to {output_path}")
+
+
+# =============================== #
+#   __  __          _____ _   _   #
+#  |  \/  |   /\   |_   _| \ | |  #
+#  | \  / |  /  \    | | |  \| |  #
+#  | |\/| | / /\ \   | | | . ` |  #
+#  | |  | |/ ____ \ _| |_| |\  |  #
+#  |_|  |_/_/    \_\_____|_| \_|  #
+#                                 #
+# =============================== #
 
 
 if __name__ == '__main__':
@@ -326,13 +588,9 @@ if __name__ == '__main__':
                                      add Hail annotations to an input VCF file.')
     
     # Get arguments
-    parser.add_argument('--input', type=str,
-                        help='Input VCF file with minimum required fields CHROM, POS, REF, ALT.')
-    parser.add_argument('--output', type=str,
-                        help='Output path for tab-delimited file.')
     parser.add_argument('--config', type=str,
                         help='Config with annotation parameters.')
     args = parser.parse_args()
 
     # execute main
-    main(args.input, args.output, args.config)
+    execute_annotation(args.config)
