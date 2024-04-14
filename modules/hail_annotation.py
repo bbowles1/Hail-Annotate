@@ -17,8 +17,10 @@ import pandas as pd
 import numpy as np
 import subprocess
 import argparse
+import logging
 
-# from config_utils import import_config
+# Create a logger
+logger = logging.getLogger(__name__)
 
 
 # ====================================== #
@@ -422,8 +424,9 @@ def add_db_annotations(vcf, db, config):
         vcf = vcf.drop('efreq', 'epopmax')
         vcf = vcf.rename({'efreq_filled': 'efreq', 'epopmax_filled': 'epopmax'})
 
-        # filter to custom allele frequency
-        vcf = vcf.filter_rows(vcf.efreq < af_cutoff, keep=True)
+        # use hail aggregators to filter for variants below AF cutoff
+        vcf = vcf.filter_rows(
+            hl.agg.count_where(vcf.efreq < af_cutoff) > 0)
         logger.debug(f"BRADLOG: Filtering on allele frequency using 'efreq' field. Output rows: {vcf.count()}.")
         
     if db == "genomes":
@@ -454,8 +457,9 @@ def add_db_annotations(vcf, db, config):
         vcf = vcf.drop('gfreq', 'gpopmax')
         vcf = vcf.rename({'gfreq_filled': 'gfreq', 'gpopmax_filled': 'gpopmax'})
 
-        # filter to custom allele frequency
-        vcf = vcf.filter_rows(vcf.gfreq < af_cutoff, keep=True)
+        # use hail aggregators to filter for variants below AF cutoff
+        vcf = vcf.filter_rows(
+            hl.agg.count_where(vcf.gfreq < af_cutoff) > 0)
         logger.debug(f"BRADLOG: Filtering on allele frequency using 'gfreq' field. Output rows: {vcf.count()}.")
 
     if db == "proportion_expressed":
@@ -535,7 +539,7 @@ def hail_annotate(input_df, config):
     vcf = vcf.key_rows_by(vcf.variant)
     
     # export table
-    export = vcf.select_rows(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
+    export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
     output_path = config['script-params']['output-name']['value']
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
