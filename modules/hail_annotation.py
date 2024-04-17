@@ -355,11 +355,11 @@ def fake_vcf(input_df,
     subprocess.check_output(command, shell=True)
     
     # copy newfile to hdfs
-    hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
+    # hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
+    # subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
 
     # return output path for reference
-    return(hdfs_path)
+    return(output_path)
 
 
 def is_vcf(input_df):
