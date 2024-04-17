@@ -7,7 +7,7 @@ Created on Fri Jul 21 09:13:35 2023
 """
 
 from google.cloud import storage
-from google.cloud.exceptions import NotFound, Forbidden
+#from google.cloud.exceptions import NotFound, Forbidden
 import json
 import re
 import os
@@ -17,10 +17,11 @@ import pandas as pd
 import numpy as np
 import subprocess
 import argparse
-import logging
+# import logging
 
-# Create a logger
-logger = logging.getLogger(__name__)
+# # Create a logger
+# logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
 
 
 # ====================================== #
@@ -354,8 +355,8 @@ def fake_vcf(input_df,
     subprocess.check_output(command, shell=True)
     
     # copy newfile to hdfs
-    hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
+    hdfs_path = 'hdfs://tmp/fake_vcf.vcf'
+    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs://tmp/'], check=True)
 
     # return output path for reference
     return(hdfs_path)
@@ -400,11 +401,11 @@ def add_db_annotations(vcf, db, config):
     if db == "exomes":
         # annotate VCF with exome information
         ht = hl.read_table(config['gnomad-paths']['exomes']['value'])
-        logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(efreq=ht[vcf.locus, vcf.alleles].freq.AF[0])
-        logger.debug(f"BRADLOG: Annotated rows with 'efreq' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotated rows with 'efreq' field. Output rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(epopmax=ht[vcf.locus, vcf.alleles].popmax.AF[0])
-        logger.debug(f"BRADLOG: Annotated rows with 'epopmax' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotated rows with 'epopmax' field. Output rows: {vcf.count()}.")
         
         # fill missing values in efreq, epopmax columns
         vcf = vcf.annotate_entries(
@@ -427,17 +428,17 @@ def add_db_annotations(vcf, db, config):
         # use hail aggregators to filter for variants below AF cutoff
         vcf = vcf.filter_rows(
             hl.agg.count_where(vcf.efreq < af_cutoff) > 0)
-        logger.debug(f"BRADLOG: Filtering on allele frequency using 'efreq' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Filtering on allele frequency using 'efreq' field. Output rows: {vcf.count()}.")
         
     if db == "genomes":
         
         # annotate vcf with genome information
         ht = hl.read_table(config['gnomad-paths']['genomes']['value'])
-        logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotating DB type: {db}. Input rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(gfreq=ht[vcf.locus, vcf.alleles].freq.AF[0])
-        logger.debug(f"BRADLOG: Annotated rows with 'gfreq' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotated rows with 'gfreq' field. Output rows: {vcf.count()}.")
         vcf = vcf.annotate_rows(gpopmax=ht[vcf.locus, vcf.alleles].popmax.AF[0])
-        logger.debug(f"BRADLOG: Annotated rows with 'gpopmax' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Annotated rows with 'gpopmax' field. Output rows: {vcf.count()}.")
 
         # fill missing values in efreq, epopmax columns
         vcf = vcf.annotate_entries(
@@ -460,7 +461,7 @@ def add_db_annotations(vcf, db, config):
         # use hail aggregators to filter for variants below AF cutoff
         vcf = vcf.filter_rows(
             hl.agg.count_where(vcf.gfreq < af_cutoff) > 0)
-        logger.debug(f"BRADLOG: Filtering on allele frequency using 'gfreq' field. Output rows: {vcf.count()}.")
+        #logger.debug(f"BRADLOG: Filtering on allele frequency using 'gfreq' field. Output rows: {vcf.count()}.")
 
     if db == "proportion_expressed":
         
@@ -487,15 +488,15 @@ def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
     hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
-                    output_dir='/tmp/', use_chr=False)
+                    output_dir='hdfs://tmp/', use_chr=False)
     
     # download from hdfs storage to dataproc worker node
-    local_path = '/tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
+    #local_path = '/tmp/fake_vcf.vcf'
+    #subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
     
     # read matrix table
     #vcf = hl.read_matrix_table(matrixpath)
-    vcf = hl.import_vcf(local_path)
+    vcf = hl.import_vcf(hdfs_path)
     
     # split mutliallelic entries
     vcf = hl.split_multi(vcf)
@@ -538,9 +539,10 @@ def hail_annotate(input_df, config):
     # key by variant expression, drop other keys
     vcf = vcf.key_rows_by(vcf.variant)
     
-    # export table
+    # export table to HDFS storage
     export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
-    output_path = config['script-params']['output-name']['value']
+    #output_path = config['script-params']['output-name']['value']
+    output_path = 'hdfs://tmp/hail-annotate-output.vcf'
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
 
@@ -569,10 +571,26 @@ def execute_annotation(config_path):
     # run annotation script
     hail_annotate(vcf, config)
 
-    # parse output path from config
-    output_path = config['script-params']['output-name']['value']
+    # parse output path from config,
+    # upload to GCP
+    destination_path = upload_to_cloud(config)
 
-    print(f"Run completed. Annotated file written to {output_path}")
+    print(f"Run completed. Annotated file written to {destination_path}")
+
+
+def upload_to_cloud(config):
+
+    # set destination path
+    destination_path = config['script-params']['output-name']['value']
+
+    bucket_name = destination_path.replace('gs://','').split('/')[0]
+    blob_path = '/'.join(destination_path.replace('gs://','').split('/')[1:])
+
+    bucket = storage.Client().bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+    blob.upload_from_filename('hdfs://tmp/hail-annotate-output.vcf')
+    return blob.url
+
 
 
 # =============================== #
