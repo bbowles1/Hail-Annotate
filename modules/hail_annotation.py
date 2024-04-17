@@ -288,6 +288,9 @@ def fake_vcf(input_df,
     
     vcfcols = ['CHROM', 'POS', 'ID','REF','ALT'	,'QUAL','FILTER','INFO','FORMAT']
     
+    # use HDFS for output
+    output_dir = 'hdfs:///tmp/'
+
     # raise exception if wrong columns are present
     if False in [i in input_df.columns for i in ['CHROM','POS','REF','ALT']]:
         raise pd.errors.ParserError("Input dataframe is missing VCF variant info colums (CHROM, POS, REF, ALT)!")
@@ -344,13 +347,15 @@ def fake_vcf(input_df,
 
     
     # inject file format info into metadata    
-    newfile = output_path.replace('.tmp','')
-    command = 'sed -e \'1i\##fileformat=VCFv4.2\' ' + output_path + ' > ' + newfile
+    newfile = output_path.replace('.tmp','').replace('hdfs://','')
+    #command = 'sed -e \'1i\##fileformat=VCFv4.2\' ' + output_path + ' > ' + newfile
+    command = f"hdfs dfs -cat {output_path.replace('hdfs://','')} | sed -e '1i\##fileformat=VCFv4.2' | hadoop fs -put -f - {newfile}"
     print(command)
     subprocess.check_output(command, shell=True)
 
     # clean up tmp file
-    command = 'rm ' + output_path
+    #command = 'rm ' + output_path
+    command = f"hdfs dfs -rm -R {output_path.replace('hdfs://','')}"
     print(command)
     subprocess.check_output(command, shell=True)
     
@@ -487,8 +492,7 @@ def vcf_to_mt(input_df, config):
     """
 
     # check if VCF cols are present in input df
-    hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
-                    output_dir='hdfs:///tmp/', use_chr=False)
+    hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], use_chr=False)
     
     # download from hdfs storage to dataproc worker node
     #local_path = '/tmp/fake_vcf.vcf'
