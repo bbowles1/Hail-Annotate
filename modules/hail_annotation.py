@@ -355,8 +355,8 @@ def fake_vcf(input_df,
     subprocess.check_output(command, shell=True)
     
     # copy newfile to hdfs
-    hdfs_path = 'hdfs://tmp/fake_vcf.vcf'
-    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs://tmp/'], check=True)
+    hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
+    subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
 
     # return output path for reference
     return(hdfs_path)
@@ -488,7 +488,7 @@ def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
     hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], 
-                    output_dir='hdfs://tmp/', use_chr=False)
+                    output_dir='hdfs:///tmp/', use_chr=False)
     
     # download from hdfs storage to dataproc worker node
     #local_path = '/tmp/fake_vcf.vcf'
@@ -542,7 +542,7 @@ def hail_annotate(input_df, config):
     # export table to HDFS storage
     export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
     #output_path = config['script-params']['output-name']['value']
-    output_path = 'hdfs://tmp/hail-annotate-output.vcf'
+    output_path = 'hdfs:///tmp/hail-annotate-output.vcf'
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
 
@@ -588,7 +588,7 @@ def upload_to_cloud(config):
 
     bucket = storage.Client().bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    blob.upload_from_filename('hdfs://tmp/hail-annotate-output.vcf')
+    blob.upload_from_filename('hdfs:///tmp/hail-annotate-output.vcf')
     return blob.url
 
 
