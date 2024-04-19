@@ -12,23 +12,19 @@
 "script-params" : 
     {
         "testing" : {
-            "value": false,
+            "value": true,
             "type" : "boolean"
         },
         "allele-frequency-cutoff" : {
             "value" : 0.1,
             "type" : "float"
         },
-        // "project-bucket" : {
-        //     "value" : "gs://hail-annotation-scripts/",
-        //     "type" : "google-cloud-path"
-        // },
         "input-vcf" : {
-            "value" : "test.vcf",
+            "value" : "gs://bucket-name/input.vcf",
             "type" : "google-cloud-path"
         },
         "output-name" : {
-            "value" : "test.annotated.vcf",
+            "value" : "gs://bucket-name/input.annotated.vcf",
             "type" : "google-cloud-path"
         }
     }
