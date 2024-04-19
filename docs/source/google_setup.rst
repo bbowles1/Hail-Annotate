@@ -28,14 +28,14 @@ Creating an account on Google Cloud is straightforward and, importantly, will gr
 **3. Install the Google Cloud SDK.** This project will make use of the Google Cloud SDK. While there are some tasks (such as enabling billing or assessing data usage) which are more convenient to do using the Google Cloud console, many of the tasks of uploading data and initiating computing tasks are better done from the command line. You can follow instructions `here to install the Google Cloud SDK on your operating system of choice <https://cloud.google.com/sdk/docs/install>`_.
 
 **4. Create a Google Cloud Project.** Create a new project, which we will use to initiate compute instances and monitor billing. We can use the Google Cloud CLI to do this:
-`gcloud projects create example-name-1 --name="GnomAD Project" --labels=type=gnomAD-test``
+`gcloud projects create example-name-1 --name="GnomAD Project" --labels=type=gnomAD-test`
 
 
-**2. Enable billing on your Cloud Project.** Within the Cloud console, you can select the "Billing" section (for me, this is hosted on the middle right-side of the console). From there, you can follow `Google's instructions to enable billing for your account. <https://cloud.google.com/billing/docs/how-to/modify-project>`_ Cloud billing will be required to A) launch Google Cloud computation tasks, and B) access GnomAD reference data. 
+**2. Enable billing on your Cloud Project.** Within the Cloud console, you can select the "Billing" section (for me, this is hosted on the middle right-side of the console). From there, you can follow `Google's instructions to enable billing for your account. <https://cloud.google.com/billing/docs/how-to/modify-project>`_ Cloud billing will be required to A) launch Google Cloud computation tasks, and B) access GnomAD reference data. This is true even if you are using Google Cloud's free credits. 
 
 *Note:* Google does not allow you to set limits on Cloud billing, so I recommend monitoring your usage carefully and testing all code extensively on small test sets. For this project, I opted to test my annotation pipeline by annotating all variants on chromosome 22 with GnomAD allele frequencies, before expanding my analysis to all human chromosomes. For a breakdown of Google Cloud billing costs, please consult this excellent guide from Dan King on how to estimate your cloud billing costs.
 
-**Set a Default Region for your Google Cloud Project.** I have run into the issue where I cannot find a Google Cloud instane unless I specfiy a region to search within. Additionally, at the time of writing users will face significant data transfer costs if they request GnomAD data from somewhere outside of the US. For these reasons, I recommend that you A) set a default, US-based region for your Google Cloud project, and B) specify this region when launching DataProc clusters or other computing tasks. I opted to set my Google Cloud Region as `us-west-1.` I was able to set this as the default for my project using:
+**Set a Default Region for your Google Cloud Project.** I have run into the issue where I cannot find a Google Cloud instance unless I specfiy a region to search within. Additionally, at the time of writing users will face significant data transfer costs if they request GnomAD data from somewhere outside of the US. For these reasons, I recommend that you A) set a default, US-based region for your Google Cloud project, and B) specify this region when launching DataProc clusters or other computing tasks. I opted to set my Google Cloud Region as `us-west-1.` I was able to set this as the default for my project using:
 
 .. code-block::bash
     gcloud compute project-info add-metadata \
@@ -64,13 +64,19 @@ To solve this issue, we will create a service account and use it to run our comp
         --description="service account for hail annotation" \
         --display-name="test-service-account"
 
-2. Give your service account the "storage.objectViewer" role to allow it to view Google Cloud buckets within your project.
+After creating a service account, you can view this role using `gcloud iam service-accounts list`.
+
+
+2. Give your service account the "storage.objectAdmin" role to allow it to view Google Cloud buckets within your project. 
 
 .. code-block:: bash
 
     gcloud projects add-iam-policy-binding your-project-name \
         --member="serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com" \
-        --role="roles/storage.objectViewer"
+        --role="roles/storage.objectAdmin"
+
+*Note: I tried multiple approaches that used a stricter set of permissions for my service account. I initially restrictied my account to have storage.objectViewer and storage.objectCreator roles but found that this interfered with output file transfer from Dataproc's HDFS storage to GCP. Your service account must be able to read and write objects to GCP, and also delete temporary cache files created during the Dataproc HDFS to GCP transfer. I feel that storage.objectAdmin strikes a balance between restricting service account roles and enabling the functionality needed for efficient data transfer.*
+
 
 3. Give your service account the "dataproc.worker" role to allow it to initiate Dataproc instances.
 
@@ -80,16 +86,12 @@ To solve this issue, we will create a service account and use it to run our comp
         --member="serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com" \
         --role="roles/dataproc.worker"
 
-If you need to list your available service accounts, you can use `gcloud auth list` to do so.
+If you need to list your available service accounts, you can use `gcloud auth list` to do so. You can list available projects using `gcloud projects list`.
+
+In the <LINK TO NEXT PAGE> page, we will use this service account to launch cloud annotation tasks.
 
 
-
-
-
-OPEN QUESTIONS
-
-
-Additional Cloud Resources
+# Additional Cloud Resources
 ----------------------------
 Dan King, formerly of the Hail Team, has a great `primer for using Hail on Google Cloud <https://github.com/danking/hail-cloud-docs/blob/master/how-to-cloud.md>`_. His example walks you through the basics of initiating a Dataproc instance and launching a simple annotation task.
 
