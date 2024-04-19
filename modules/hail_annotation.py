@@ -3,11 +3,11 @@
 """
 Created on Fri Jul 21 09:13:35 2023
 
-@author: bbowles
+@author: bbowles1
 """
 
 from google.cloud import storage
-#from google.cloud.exceptions import NotFound, Forbidden
+from google.cloud.exceptions import NotFound, Forbidden
 import json
 import re
 import os
@@ -17,12 +17,6 @@ import pandas as pd
 import numpy as np
 import subprocess
 import argparse
-# import logging
-
-# # Create a logger
-# logger = logging.getLogger(__name__)
-# logging.basicConfig(level=logging.INFO)
-
 
 # ====================================== #
 #    ____ ___  _   _ _____ ___ ____      #
@@ -347,21 +341,15 @@ def fake_vcf(input_df,
     
     # inject file format info into metadata    
     newfile = output_path.replace('.tmp','')
-    #command = 'sed -e \'1i\##fileformat=VCFv4.2\' ' + output_path + ' > ' + newfile
     command = f"hdfs dfs -cat {output_path.replace('hdfs://','')} | sed -e '1i\##fileformat=VCFv4.2' | hadoop fs -put -f - {newfile.replace('hdfs://','')}"
     print(command)
     subprocess.check_output(command, shell=True)
 
-    # clean up tmp file
-    #command = 'rm ' + output_path
+    # clean up tmp file from HDFS
     command = f"hdfs dfs -rm -R {output_path.replace('hdfs://','')}"
     print(command)
     subprocess.check_output(command, shell=True)
     
-    # copy newfile to hdfs
-    # hdfs_path = 'hdfs:///tmp/fake_vcf.vcf'
-    # subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
-
     # return output path for reference
     return(newfile)
 
@@ -492,18 +480,13 @@ def vcf_to_mt(input_df, config):
 
     # check if VCF cols are present in input df
     hdfs_path = fake_vcf(input_df[["CHROM","POS","REF","ALT"]], use_chr=False)
-    
-    # download from hdfs storage to dataproc worker node
-    #local_path = '/tmp/fake_vcf.vcf'
-    #subprocess.run(['hadoop', 'dfs', '-get', '-f', hdfs_path, local_path], check=True)
-    
+        
     # read matrix table
-    #vcf = hl.read_matrix_table(matrixpath)
     vcf = hl.import_vcf(hdfs_path)
     
     # split mutliallelic entries
     vcf = hl.split_multi(vcf)
-    # NOTE THAT THIS HANDLES GT INFORMATION ODDLY, SEE DOCS
+    # NOTE THAT THIS HANDLES the `GT` FIELD ODDLY, SEE DOCS
     # https://hail.is/docs/0.2/methods/genetics.html#hail.methods.split_multi
 
     # if testing, create smaller variant subset
@@ -544,7 +527,6 @@ def hail_annotate(input_df, config):
     
     # export table to HDFS storage
     export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
-    #output_path = config['script-params']['output-name']['value']
     output_path = 'hdfs:///tmp/hail-annotate-output.vcf'
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
@@ -576,7 +558,8 @@ def execute_annotation(config_path):
 
     # upload to GCP
     destination_path = config['script-params']['output-name']['value']
-    upload_to_cloud(destination_path)
+    upload_to_cloud(destination_path
+                    )
 
     print(f"Run completed. Annotated file written to {destination_path}")
 
