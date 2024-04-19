@@ -265,8 +265,7 @@ def import_config(gcs_path):
 # ================================#
 
 
-def fake_vcf(input_df, 
-             output_dir,
+def fake_vcf(input_df,
              use_chr=True):
     """Spoof a VCF file structure when passed an input DataFrame containing CHROM, REF, POS, ALT columns. 
     For all columns in 'ID', 'QUAL', 'FILTER', 'INFO', 'FORMAT', adds any columns which are not present.
@@ -347,9 +346,9 @@ def fake_vcf(input_df,
 
     
     # inject file format info into metadata    
-    newfile = output_path.replace('.tmp','').replace('hdfs://','')
+    newfile = output_path.replace('.tmp','')
     #command = 'sed -e \'1i\##fileformat=VCFv4.2\' ' + output_path + ' > ' + newfile
-    command = f"hdfs dfs -cat {output_path.replace('hdfs://','')} | sed -e '1i\##fileformat=VCFv4.2' | hadoop fs -put -f - {newfile}"
+    command = f"hdfs dfs -cat {output_path.replace('hdfs://','')} | sed -e '1i\##fileformat=VCFv4.2' | hadoop fs -put -f - {newfile.replace('hdfs://','')}"
     print(command)
     subprocess.check_output(command, shell=True)
 
@@ -364,7 +363,7 @@ def fake_vcf(input_df,
     # subprocess.run(['hadoop', 'dfs', '-put', '-f', newfile, 'hdfs:///tmp/'], check=True)
 
     # return output path for reference
-    return(output_path)
+    return(newfile)
 
 
 def is_vcf(input_df):
@@ -575,25 +574,26 @@ def execute_annotation(config_path):
     # run annotation script
     hail_annotate(vcf, config)
 
-    # parse output path from config,
     # upload to GCP
-    destination_path = upload_to_cloud(config)
+    destination_path = config['script-params']['output-name']['value']
+    upload_to_cloud(destination_path)
 
     print(f"Run completed. Annotated file written to {destination_path}")
 
 
-def upload_to_cloud(config):
+def upload_to_cloud(destination_path):
+    """Upload annotated file to Google Cloud. Requires "Storage Folder Admin" permission.
 
-    # set destination path
-    destination_path = config['script-params']['output-name']['value']
+    :param destination_path: GCP Destination path parsed from Config
+    :type destination_path: str
+    """
 
-    bucket_name = destination_path.replace('gs://','').split('/')[0]
-    blob_path = '/'.join(destination_path.replace('gs://','').split('/')[1:])
+    # perform efficient Hadoop-style Upload
+    command = f"hadoop distcp hdfs:///tmp/hail-annotate-output.vcf {destination_path}"
+    print(command)
+    subprocess.check_output(command, shell=True)
 
-    bucket = storage.Client().bucket(bucket_name)
-    blob = bucket.blob(blob_path)
-    blob.upload_from_filename('hdfs:///tmp/hail-annotate-output.vcf')
-    return blob.url
+    print(f"Annotated output loaded to {destination_path}.")
 
 
 
