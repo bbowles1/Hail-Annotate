@@ -599,7 +599,7 @@ if __name__ == '__main__':
     
     # Get arguments
     parser.add_argument('--config', type=str,
-                        help='Local path to a config with annotation parameters.')
+                        help='GCP path to a config with annotation parameters.')
     args = parser.parse_args()
 
     # execute main
