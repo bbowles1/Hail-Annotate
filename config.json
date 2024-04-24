@@ -2,30 +2,36 @@
     {
         "exomes": {
             "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/",
-            "type" : "google-cloud-path"
+            "type" : "google-cloud-path",
+            "description" : "Cloud path to GnomAD exome allele frequency hail table."
         },
         "genomes": {
             "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht/",
-            "type" : "google-cloud-path"
+            "type" : "google-cloud-path",
+            "description" : "Cloud path to GnomAD genome allele frequency hail table."
         }
     },
 "script-params" : 
     {
         "testing" : {
             "value": true,
-            "type" : "boolean"
+            "type" : "boolean",
+            "decription" : "Subsets input data to chromosome 22 if true."
         },
         "allele-frequency-cutoff" : {
             "value" : 0.1,
-            "type" : "float"
+            "type" : "float",
+            "description" : "Float value between 0 and 1, variants with frequency below this threshold are removed from output."
         },
         "input-vcf" : {
             "value" : "gs://bucket-name/input.vcf",
-            "type" : "google-cloud-path"
+            "type" : "google-cloud-path",
+            "description" : "Cloud path to input VCF file."
         },
         "output-name" : {
             "value" : "gs://bucket-name/input.annotated.vcf",
-            "type" : "google-cloud-path"
+            "type" : "google-cloud-path",
+            "description" : "Cloud path to output data."
         }
     }
 }
