@@ -4,59 +4,46 @@ Launching Computing Tasks
 Installing Hail
 ---------------
 
-Hail provides a wrapper for Google Dataproc, `hailctl` which provisions Dataproc clusters which already contain Hail installations. This saves us the trouble of setting up Hail on our own Dataproc clusters, although we will still need Hail on our local computer to initiate such instances. Users can install Hail using their favorite package manager (I have used both pip and conda). More detailed instructions on downloading Hail can be found `here <https://hail.is/#install>`_.
+Hail provides a wrapper for Google Dataproc, `hailctl`. The `hailctl`` command provisions Dataproc clusters which already contain installations of the Hail library. This saves us the trouble of setting up Hail on our own Dataproc clusters, although we will still need Hail on our local computer to initiate such instances. Users can install Hail using their favorite package manager (I have used both pip and conda). More detailed instructions on downloading Hail can be found `here <https://hail.is/#install>`_.
 
 
 Hail Annotation Scripts
 ------------------------
 This guide makes use of several annotation scripts which are designed to take input VCF information and annotate them with GnomAD information. I am specificially interested in annotating input VCF files with information on exome and genome frequency in Hail v2.1.1, although this code is readily adaptable to other Hail releases.
 
-This repository has several files used to execute this pipeline:
-1. app.py
-2. config.json
-3. modules/wrapper.py --> series of scripts used to download input data to the dataproc cluster and upload output data.
-4. hail_annotation.py
+The annotation pipeline is very simple, and makes use of the following:
 
-These files will take an input VCF file stored in your Google Cloud bucket and annotate it with variant allele frequency information from the GnomAD exome and genome datasets specified by the `config.json`. The resulting output file will then be uploaded back to your Google Cloud Bucket.
+1. An input JSON config to specify annotation parameters and a path for output data.
+2. The `hail_annotation.py` which contains utilities to parse the input config, execute the annotation task, and upload the output data to your Google Cloud destination.
 
 
-Editing Input Parameters
--------------------------
-Users will need to edit this repository's `config.json` file to specify which versions of Hail exome/genome data they wish to use for annotation. The json has the following structure:
+Pipeline Input
+---------------
+The input file for this annotation task should ideally conform to the VCF v??? specification. At minimum, your input file must be tab-delimited, and must contain the following fields specifying genomic coordinates: CHROM, POS, REF, ALT. 
 
-.. code-block:: python
-
-    {"exomes": {
-        "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/"
-    },
-    "genomes": {
-        "path" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht"
-    },
-    "cache": {
-        "path" : "/tmp/"
-    },
-    "testing" : false
-    }
-
-In this json, we are providing the google cloud paths to GnomAD exome and genome data. Additionally, the `cache` key is the directory to which our dataproc instance will write intermediate data (I recommend leaving it as "/tmp/"). Lastly, if the `testing` key is set to `true`, our script will subset input VCF data to chromosome 22 variants. This provides a more lightweight execution of our annotation pipeline that is useful for debugging while minimizing computing/storage costs.
+The CHROM field can can be in either "chrX" or "X" format, but output data will contain the chromosome number alone without the chr- prefix.
 
 
-Uploading Scripts to Google Cloud
----------------------------------
-Once you configure your `config.json`, you will need to upload the following miminal set of files to the Google Cloud bucket that we created for this project:
-- your input VCF
-- app.py
-- config.json
-- the full /modules/ directory
+Editing Annotation Parameters
+-----------------------------
+Users will need to edit this repository's `config.json` file to specify which versions of Hail exome/genome data they wish to use for annotation. This config will need to be hosted in a Google Cloud bucket to be accessible to the pipeline.
 
-Users can also copy the full repo to your cloud storage bucket using `gsutil cp -r ./Hail-Annotate gs://your-bucket-name/Hail-Annotate/`.
+The JSON config has the following fields:
+
+**GnomAD Paths**
+1. Exomes: A Google cloud path to the hail table (.ht) directory containing the GnomAD exomes allele frequency data.
+2. Genomes: A Google cloud path to the hail table (.ht) directory containing the GnomAD genomic allele frequency data.
+
+**Script Parameters**
+1. Testing: If true, the annotation pipeline will subset your data to variants located on chr22. This is useful for testing pipeline functionality on a small set of your data.
+2. Allele Frequency Cutoff: A float value between 0 and 1. If you specify an allele frequency cutoff for your data below 1, any variants with allele frequency above (or equal to) this threshold will be filtered from your output.
+3. Input VCF: This is a Google Cloud path to your input VCF file. You must copy your data to an appropriate Google Cloud destination. Your path must contain the full `gs://bucket/input.vcf` syntax.
+4. Output name: This is a Google Cloud path to your output file. Like the input VCF, this must be a full cloud path with the `gs://bucket/output-name.vcf` syntax. It should be a file path, not a directory path.
 
 
-Creating DataProc Instances
----------------------------
-Now that we've set up our Cloud project, bucket, and service account, and uploaded the required scripts and input files, we can now start initiating DataProc computing tasks.
-
-1. Create a Dataproc instance.
+Creating a DataProc Instance
+-----------------------------
+Now that we've set up our Cloud project, bucket, and service account, we can now start initiating DataProc computing tasks. We can create a Dataproc instance using:
 
 .. code-block::bash
 
@@ -64,21 +51,28 @@ Now that we've set up our Cloud project, bucket, and service account, and upload
         --region us-west1 \
         --service-account=test-service-account@your-project.iam.gserviceaccount.com
 
-2. Submit your Job to the Cluster.
+
+Launching Annotation Task
+-------------------------
+We can submit our job to the cluster using:
 
 .. code-block:: bash
 
-    hailctl dataproc submit gnomad-test \
-        /local/path/to/Hail-Annotate/modules/wrapper.py \
-        --region us-west1 --max-idle=10m
+    hailctl dataproc submit gnomad-test /local/path/to/hail_annotation.py \ 
+        --config gs://hail-annotation-scripts/test_config.json \ 
+        --region us-west1
 
-This will copy the repo from Google cloud to the local dataproc instance.
-The dataproc will then execute Hail annotation scripts.
-The dataproc will save an output file to HDFS and then copy it to Google Cloud.
+The input hail_annotation.py should be hosted locally, but your input config should be hosted in a Google Cloud bucket (ideally the same bucket as your input VCF). The dataproc will save an output file to HDFS and then copy it to Google Cloud.
 
-3. Wait for annotation to complete. An output file ??? will be uploaded to your Google Cloud bucket.
 
-4. The Dataproc instance should stop automatically. Confirm that your instance is no longer running using the below commands:
+Cleaning Up
+-------------
+1. The below command stops your dataproc instance:
+
+.. code-block:: bash
+    hailctl dataproc stop gnomad-test --region us-west1
+
+2. Confirm that your instance is no longer running using the below commands:
 
 .. code-block:: bash
 
@@ -86,23 +80,48 @@ The dataproc will save an output file to HDFS and then copy it to Google Cloud.
     
     gcloud compute instances list --region=us-west1
 
-If your instance has not stopped running, you can manually shut it down using:
+3. *Optional:* Clean up Google Cloud Bucket.
 
-.. code-block:: bash
-
-    hailctl dataproc stop gnomad-test --region us-west1
-
-5. *Optional:* Clean up Google Cloud Bucket.
 Your Google Cloud bucket will accumulate storage charges over time, especially for large files. If you are done with your project, I recommend cleaning up large files or deleting the bucket entirely to save on storage costs.
 
 
+Example JSON
+-------------
 
-Pipeline Quirks
-----------------
-I wrote this script to take minimal information on variant position (CHROM, POS, REF, ALT) and use the `modules/fake_vcf.py` function to write a full VCF with the minimum set of columns that many informatics programs expects a VCF to have ('CHROM', 'POS', 'ID','REF','ALT','QUAL','FILTER','INFO','FORMAT'). I find this useful for simulating variants in situations where I do not care about things such as variant phase, genotype, or read quality.
+Below is a full example JSON config.
 
-Depending on the type of Dataproc instrance that you provision, this annotation code may run slowly. A test run of this script with ??? variants using the default instance initiated by the `hailctl` module took ~10 hours to completion.
+.. code-block:: python
 
-ANNOTATION also filters to AF < 0.1.
+    {"gnomad-paths" :
+        {
+            "exomes": {
+                "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/",
+                "type" : "google-cloud-path"
+            },
+            "genomes": {
+                "value" : "gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht/",
+                "type" : "google-cloud-path"
+            }
+        },
+    "script-params" : 
+        {
+            "testing" : {
+                "value": false,
+                "type" : "boolean"
+            },
+            "allele-frequency-cutoff" : {
+                "value" : 0.1,
+                "type" : "float"
+            },
+            "input-vcf" : {
+                "value" : "gs://bucket-name/input.vcf",
+                "type" : "google-cloud-path"
+            },
+            "output-name" : {
+                "value" : "gs://bucket-name/input.annotated.vcf",
+                "type" : "google-cloud-path"
+            }
+        }
+    }
 
 
