@@ -4,15 +4,16 @@ Overview
 What is GnomAD?
 ----------------
 
-The GnomAD database is a foundational resource in the genetics field which provides information on variant allele frequency and gene constraint. It is a database of healthy individuals who have received exome or genome sequencing. As of release v4.0, the GnomAD database contains information from over **800,000** individuals. The fundamental premise of the GnomAD database is that regions of the genome which have critical biological functions will exhibit fewer mutations in healthy human populations. 
+The GnomAD database is a foundational resource in the genetics field which provides information on variant allele frequency and gene constraint. It is a database of healthy individuals who have received exome or genome sequencing. As of release v4.0, the GnomAD database contains information from over 800,000 individuals. The fundamental premise of the GnomAD database is that regions of the genome which have critical biological functions will exhibit fewer mutations in healthy human populations. 
 
 
 Case Study for GnomAD Usage
 ----------
 
-A common use case for the GnomAD dataset in clinical genomics is to identify benign mutations in a sequencing report. For example, the *CFTR* gene is a cause of autosomal recessive Cystic Fibrosis. Say you are a clinician and, in the process of screening your patient for disease-causing mutations, you observe an Adenine to Guanine variant on Chromosome 7, position 117480192, which occurs within an intron of *CFTR*. This exact variant has been observed 231 times in healthy GnomAD individuals and has an allele frequency of 0.0001458 across all individuals in the database. Furthermore, there are two individuals who were observed with homozygous mutations in this gene. Further investigation is needed to conclusively rule out this variant as a cause of disease, but the weight of the evidence from GnomAD suggests that this change is not a major driver of cystic fibrosis. 
 
-While this example is only one of the many ways the GnomAD database provides useful information for clinicians and researchers, it is emblematic of a foundational genomics task: matching patient genetic variants to the wealth of information available in GnomAD.
+A common use case for the GnomAD dataset in clinical genomics is to identify benign mutations in a sequencing report. For example, the *CFTR* gene is a cause of autosomal recessive Cystic Fibrosis. Say you are a clinician and, in the process of screening your patient for disease-causing mutations, you observe an Adenine to Guanine variant on Chromosome 7, position 117480192, which occurs within an intron of *CFTR* (this can be represented as a 7-117480192-A-G variant in GnomAD GRCh38 coordinates). This exact variant has been observed 231 times in healthy GnomAD individuals and has an allele frequency of 0.0001458 across all individuals in the database. Furthermore, there are two individuals who were observed with homozygous mutations in this gene. Further investigation is needed to conclusively rule out this variant as a cause of disease, but the weight of the evidence from GnomAD suggests that this change is not a major driver of cystic fibrosis. 
+
+While this example is only one of the many ways the GnomAD database provides useful information for clinicians and researchers, it is emblematic of a foundational clinical genetics task: matching patient genetic variants to the wealth of information available in GnomAD.
 
 
 What are VCF Files?
@@ -28,7 +29,7 @@ The identity of a genetic variant is represented by the following set of columns
 
 VCF files can contain other information, such as phase information, depending on the alignment pipline used to generate them. However, the CHROM, REF, POS, and ALT columns provide the core coordinate info within VCF files.
 
-If we want to obtain allele frequency information for variants in a VCF file, we can match them to variants in the GnomAD database using information from the CHROM, POS, REF, and ALT columns. We can do this ourselves for single variants: for example, our CFTR variant from the "What is GnomAD" section can be represented as 7-117480192-A-G and we can search for it directly on the GnomAD website. But say you have a clinical pipeline where you must scalably annotate allele frequency information for thousands of individuals. How can you go about this? Fortunately, the GnomAD team has published a tool called **Hail** which is designed to scale this annotation process for very large datasets.
+If we want to obtain allele frequency information for variants in a VCF file, we can match them to variants in the GnomAD database using information from the CHROM, POS, REF, and ALT columns. We can do this ourselves for single variants: for example, our CFTR variant from the "What is GnomAD" section can be represented as 7-117480192-A-G and we can search for it directly on the GnomAD website. But say you have a clinical pipeline where you must scalably annotate allele frequency information for thousands of individuals. How can you go about this? Fortunately, the GnomAD team has published a tool called `Hail <https://hail.is/>_` which is designed to scale this annotation process for very large datasets.
 
 Why use Hail?
 --------------

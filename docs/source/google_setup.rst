@@ -9,11 +9,12 @@ Minimizing Google Cloud Costs
 Creating a Google Cloud account will grant you $300 in free credits. My experience annotationg a large VCF file (500k variants) with both genome and exome allele frequency information cost $40 out of these $300 in credits. Your costs may vary depending on the size of your input file(s), so carefully monitor your computing costs.
 
 Google will charge you for the following:
+
 A. Transferring data from regions where GnomAD data is hosted (US-based servers) to regions where it is not.
 B. Storing data in a Google Cloud bucket.
 C. Running Google Cloud computational tasks.
 
-Point A can be very expensive if you are not careful. GnomAD uses "requestor pays buckets" which charge you to transfer data from regions where GnomAD is hosted to regions where it is not. GnomAD data is freely available in all US Google Cloud regions. To avoid data transfer costs, you will want to set your region to a US location when initiating a Google Cloud computing task *even if you are not located in the US*. I am using the region `us-west-2` for all examples, although there are many US regions to choose from.
+Point A can be very expensive if you are not careful. GnomAD uses "requestor pays buckets" which charge you to transfer data from regions where GnomAD is hosted to regions where it is not. GnomAD data is freely available in all US Google Cloud regions. To avoid data transfer costs, you will want to set your region to a US location when initiating a Google Cloud computing task *even if you are not located in the US*. I am using the region ``us-west-2`` for all examples, although there are many US regions to choose from.
 
 It is harder to minimize our costs for points B and C, but I would generally recommend trying to write efficient code and be wary of storing large files in Google Cloud buckets for extended periods of time. Additionally, when importing GnomAD data, use the GnomAD cloud buckets hosted on Google rather than copying reference data to your own Google Cloud bucket.
 
@@ -29,22 +30,22 @@ Creating an account on Google Cloud is straightforward and, importantly, will gr
 
 **3. Create a Google Cloud Project.** Create a new project, which we will use to initiate compute instances and monitor billing. We can use the Google Cloud CLI to do this:
 
-.. code-block::bash
+.. code-block:: bash
     gcloud projects create example-name-1 --name="GnomAD Project" --labels=type=gnomAD-test
 
 **4. Enable billing on your Cloud Project.** Within the Cloud console, you can select the "Billing" section (for me, this is hosted on the middle right-side of the console). From there, you can follow `Google's instructions to enable billing for your account. <https://cloud.google.com/billing/docs/how-to/modify-project>`_ Cloud billing will be required to A) launch Google Cloud computation tasks, and B) access GnomAD reference data. This is true even if you are using Google Cloud's free credits. 
 
 *Note:* Google does not allow you to set limits on Cloud billing, so I recommend monitoring your usage carefully and testing all code extensively on small test sets. For this project, I opted to test my annotation pipeline by subsetting my dataset to only contain variants located on chromosome 22, before expanding my analysis to variants on any human chromosome. For a breakdown of Google Cloud billing costs, please consult `this excellent guide <https://github.com/danking/hail-cloud-docs>`_ from Dan King on how to estimate your cloud billing costs.
 
-**5. Set a Default Region for your Google Cloud Project.** I have run into the issue where I cannot find a Google Cloud instance unless I specfiy a region to search within. Additionally, at the time of writing users will face significant data transfer costs if they request GnomAD data from somewhere outside of the US. For these reasons, I recommend that you A) set a default, US-based region for your Google Cloud project, and B) specify this region when launching DataProc clusters or other computing tasks. I opted to set my Google Cloud Region as `us-west-1.` I was able to set this as the default for my project using:
+**5. Set a Default Region for your Google Cloud Project.** I have run into the issue where I cannot find a Google Cloud instance unless I specfiy a region to search within. Additionally, at the time of writing users will face significant data transfer costs if they request GnomAD data from somewhere outside of the US. For these reasons, I recommend that you A) set a default, US-based region for your Google Cloud project, and B) specify this region when launching DataProc clusters or other computing tasks. I opted to set my Google Cloud Region as ``us-west-1.`` I was able to set this as the default for my project using:
 
 .. code-block::bash
     gcloud compute project-info add-metadata \
         --metadata google-compute-default-region=REGION,google-compute-default-zone=ZONE
 
-**6. Create a Google Cloud Bucket.** For this project, we will require a Google Cloud bucket to host our input VCF data, our Python scripts, and our pipeline output. Once you have registered for Google Cloud, you will need to create a new bucket for your project. You can do this from within the Google Cloud console by searching "Cloud Storage" or navigating to `this link <https://console.cloud.google.com/storage/>`_. Users can also create a Cloud Bucket from the command line using: `gsutil mb gs://<YOUR_BUCKET_NAME>`.
+**6. Create a Google Cloud Bucket.** For this project, we will require a Google Cloud bucket to host our input VCF data, our Python scripts, and our pipeline output. Once you have registered for Google Cloud, you will need to create a new bucket for your project. You can do this from within the Google Cloud console by searching "Cloud Storage" or navigating to `this link <https://console.cloud.google.com/storage/>`_. Users can also create a Cloud Bucket from the command line using: ``gsutil mb gs://<YOUR_BUCKET_NAME>``.
 
-**7. Tag your Google Cloud Bucket.** Google Cloud Billing will show storage costs, but does not break them down by bucket. Users will need to tag their buckets, and then use these tags to monitor which billing charges correspond to which bucket. Each tag is a `key:value` pair, for example `bucket:gnomad_annotation`. Users can tag their buckets from the command line using: 
+**7. Tag your Google Cloud Bucket.** Google Cloud Billing will show storage costs, but does not break them down by bucket. Users will need to tag their buckets, and then use these tags to monitor which billing charges correspond to which bucket. Each tag is a ``key:value`` pair, for example ``bucket:gnomad_annotation``. Users can tag their buckets from the command line using: 
 
 .. code-block::bash
     gsutil label ch -l bucket:bucket-tag gs://bucket-path/
@@ -67,7 +68,7 @@ To solve this issue, we will create a service account and use it to run our comp
         --description="service account for hail annotation" \
         --display-name="test-service-account"
 
-You can view available service account roles using `gcloud iam service-accounts list`.
+You can view available service account roles using ``gcloud iam service-accounts list``.
 
 
 2. Give your service account the "storage.objectAdmin" role to allow it to view Google Cloud buckets within your project. 
@@ -78,7 +79,7 @@ You can view available service account roles using `gcloud iam service-accounts 
         --member="serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com" \
         --role="roles/storage.objectAdmin"
 
-*Note: I tried multiple approaches that used a stricter set of permissions for my service account. I initially restrictied my account to have storage.objectViewer and storage.objectCreator roles but found that this interfered with output file transfer from Dataproc's HDFS storage to GCP. Your service account must be able to read and write objects to GCP, and also delete temporary cache files created during the Dataproc HDFS to GCP transfer. I feel that storage.objectAdmin strikes a balance between restricting service account roles and enabling the functionality needed for efficient data transfer. If you're concerned about this approach, you can try creating two input buckets: one for input data (which the service account has storage.objectViewer access to) and another for output data (which the service account has storage.objectAdmin access to).
+*Note:* I tried multiple approaches that used a stricter set of permissions for my service account. I initially restrictied my account to have storage.objectViewer and storage.objectCreator roles but found that this interfered with output file transfer from Dataproc's HDFS storage to GCP. Your service account must be able to read and write objects to GCP, and also delete temporary cache files created during the Dataproc HDFS to GCP transfer. I feel that storage.objectAdmin strikes a balance between restricting service account roles and enabling the functionality needed for efficient data transfer. If you're concerned about this approach, you can try creating two input buckets: one for input data (which the service account has storage.objectViewer access to) and another for output data (which the service account has storage.objectAdmin access to).
 
 
 3. Give your service account the "dataproc.worker" role to allow it to initiate Dataproc instances.
@@ -89,12 +90,12 @@ You can view available service account roles using `gcloud iam service-accounts 
         --member="serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com" \
         --role="roles/dataproc.worker"
 
-If you need to list your available service accounts, you can use `gcloud auth list` to do so. You can list available projects using `gcloud projects list`.
+If you need to list your available service accounts, you can use ``gcloud auth list`` to do so. You can list available projects using ``gcloud projects list``.
 
 In the <LINK TO NEXT PAGE> page, we will use this service account to launch cloud annotation tasks.
 
 
-# Additional Cloud Resources
+Additional Cloud Resources
 ----------------------------
 Dan King, formerly of the Hail Team, has a great `primer for using Hail on Google Cloud <https://github.com/danking/hail-cloud-docs/blob/master/how-to-cloud.md>`_. His example walks you through the basics of initiating a Dataproc instance and launching a simple annotation task.
 
