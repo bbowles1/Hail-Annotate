@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Launching Computing Tasks &mdash; Hail-Annotate 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=2389946f"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Google Setup" href="google_setup.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Hail-Annotate
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="google_setup.html">Google Cloud Setup</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Launching Annotation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installing-hail">Installing Hail</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hail-annotation-scripts">Hail Annotation Scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pipeline-input">Pipeline Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#editing-annotation-parameters">Editing Annotation Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-a-dataproc-instance">Creating a DataProc Instance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#launching-annotation-task">Launching Annotation Task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cleaning-up">Cleaning Up</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-json">Example JSON</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Hail-Annotate</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Launching Computing Tasks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/launching_annotation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="launching-computing-tasks">
+<h1>Launching Computing Tasks<a class="headerlink" href="#launching-computing-tasks" title="Permalink to this heading"></a></h1>
+<section id="installing-hail">
+<h2>Installing Hail<a class="headerlink" href="#installing-hail" title="Permalink to this heading"></a></h2>
+<p>Hail provides a wrapper for Google Dataproc, <code class="docutils literal notranslate"><span class="pre">hailctl</span></code>. The <code class="docutils literal notranslate"><span class="pre">hailctl</span></code> command provisions Dataproc clusters which already contain installations of the Hail library. This saves us the trouble of setting up Hail on our own Dataproc clusters, although we will still need Hail on our local computer to initiate such instances. Users can install Hail using their favorite package manager (I have used both pip and conda). More detailed instructions on downloading Hail can be found <a class="reference external" href="https://hail.is/#install">here</a>.</p>
+</section>
+<section id="hail-annotation-scripts">
+<h2>Hail Annotation Scripts<a class="headerlink" href="#hail-annotation-scripts" title="Permalink to this heading"></a></h2>
+<p>This guide makes use of several annotation scripts which are designed to take input VCF information and annotate them with GnomAD information. I am specificially interested in annotating input VCF files with information on exome and genome frequency in Hail v2.1.1, although this code is readily adaptable to other Hail releases.</p>
+<p>The annotation pipeline is very simple, and makes use of the following:</p>
+<ol class="arabic simple">
+<li><p>An input JSON config to specify annotation parameters and a path for output data.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">hail_annotation.py</span></code> which contains utilities to parse the input config, execute the annotation task, and upload the output data to your Google Cloud destination.</p></li>
+</ol>
+</section>
+<section id="pipeline-input">
+<h2>Pipeline Input<a class="headerlink" href="#pipeline-input" title="Permalink to this heading"></a></h2>
+<p>The input file for this annotation task should ideally conform to the VCF <a class="reference external" href="https://www.internationalgenome.org/wiki/Analysis/Variant%20Call%20Format/vcf-variant-call-format-version-40/">v4.0 specification</a>. At minimum, your input file must be tab-delimited, and must contain the following fields specifying genomic coordinates: CHROM, POS, REF, ALT.</p>
+<p>The CHROM field can can be in either “chrX” or “X” format, but output data will contain the chromosome number alone without the chr- prefix.</p>
+</section>
+<section id="editing-annotation-parameters">
+<h2>Editing Annotation Parameters<a class="headerlink" href="#editing-annotation-parameters" title="Permalink to this heading"></a></h2>
+<p>Users will need to edit this repository’s <code class="docutils literal notranslate"><span class="pre">config.json</span></code> file to specify which versions of Hail exome/genome data they wish to use for annotation. This config will need to be hosted in a Google Cloud bucket to be accessible to the pipeline.</p>
+<p>The JSON config has the following fields:</p>
+<p><strong>GnomAD Paths</strong></p>
+<ol class="arabic simple">
+<li><p>Exomes: A Google cloud path to the hail table (.ht) directory containing the GnomAD exomes allele frequency data.</p></li>
+<li><p>Genomes: A Google cloud path to the hail table (.ht) directory containing the GnomAD genomic allele frequency data.</p></li>
+</ol>
+<p><strong>Script Parameters</strong></p>
+<ol class="arabic simple">
+<li><p>Testing: If true, the annotation pipeline will subset your data to variants located on chr22. This is useful for testing pipeline functionality on a small set of your data.</p></li>
+<li><p>Allele Frequency Cutoff: A float value between 0 and 1. If you specify an allele frequency cutoff for your data below 1, any variants with allele frequency above (or equal to) this threshold will be filtered from your output.</p></li>
+<li><p>Input VCF: This is a Google Cloud path to your input VCF file. You must copy your data to an appropriate Google Cloud destination. Your path must contain the full <code class="docutils literal notranslate"><span class="pre">gs://bucket/input.vcf</span></code> syntax.</p></li>
+<li><p>Output name: This is a Google Cloud path to your output file. Like the input VCF, this must be a full cloud path with the <code class="docutils literal notranslate"><span class="pre">gs://bucket/output-name.vcf</span></code> syntax. It should be a file path, not a directory path.</p></li>
+</ol>
+</section>
+<section id="creating-a-dataproc-instance">
+<h2>Creating a DataProc Instance<a class="headerlink" href="#creating-a-dataproc-instance" title="Permalink to this heading"></a></h2>
+<p>Now that we’ve set up our Cloud project, bucket, and service account, we can now start initiating DataProc computing tasks. We can create a Dataproc instance using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hailctl<span class="w"> </span>dataproc<span class="w"> </span>start<span class="w"> </span>gnomad-test<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--region<span class="w"> </span>us-west1<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--service-account<span class="o">=</span>test-service-account@your-project.iam.gserviceaccount.com
+</pre></div>
+</div>
+</section>
+<section id="launching-annotation-task">
+<h2>Launching Annotation Task<a class="headerlink" href="#launching-annotation-task" title="Permalink to this heading"></a></h2>
+<p>We can submit our job to the cluster using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hailctl<span class="w"> </span>dataproc<span class="w"> </span>submit<span class="w"> </span>gnomad-test<span class="w"> </span>/local/path/to/hail_annotation.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--config<span class="w"> </span>gs://hail-annotation-scripts/test_config.json<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--region<span class="w"> </span>us-west1
+</pre></div>
+</div>
+<p>The input <code class="docutils literal notranslate"><span class="pre">hail_annotation.py</span></code> should be hosted locally, but your input config should be hosted in a Google Cloud bucket (ideally the same bucket as your input VCF). The dataproc will save an output file to HDFS storage and then copy it to Google Cloud.</p>
+</section>
+<section id="cleaning-up">
+<h2>Cleaning Up<a class="headerlink" href="#cleaning-up" title="Permalink to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>The below command stops your dataproc instance:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hailctl<span class="w"> </span>dataproc<span class="w"> </span>stop<span class="w"> </span>gnomad-test<span class="w"> </span>--region<span class="w"> </span>us-west1
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Confirm that your instance is no longer running using the below commands:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gcloud<span class="w"> </span>dataproc<span class="w"> </span>clusters<span class="w"> </span>list<span class="w"> </span>--region<span class="o">=</span>us-west1
+
+gcloud<span class="w"> </span>compute<span class="w"> </span>instances<span class="w"> </span>list<span class="w"> </span>--region<span class="o">=</span>us-west1
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Clean up Google Cloud Bucket (<em>optional</em>).</p></li>
+</ol>
+<p>Your Google Cloud bucket will accumulate storage charges over time, especially for large files. If you are done with your project, I recommend cleaning up large files or deleting the bucket entirely to save on storage costs.</p>
+</section>
+<section id="example-json">
+<h2>Example JSON<a class="headerlink" href="#example-json" title="Permalink to this heading"></a></h2>
+<p>Below is a full example JSON config.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s2">&quot;gnomad-paths&quot;</span> <span class="p">:</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;exomes&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span> <span class="p">:</span> <span class="s2">&quot;gs://gcp-public-data--gnomad/release/2.1.1/ht/exomes/gnomad.exomes.r2.1.1.sites.ht/&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;google-cloud-path&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;genomes&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span> <span class="p">:</span> <span class="s2">&quot;gs://gcp-public-data--gnomad/release/2.1.1/ht/genomes/gnomad.genomes.r2.1.1.sites.ht/&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;google-cloud-path&quot;</span>
+        <span class="p">}</span>
+    <span class="p">},</span>
+<span class="s2">&quot;script-params&quot;</span> <span class="p">:</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;testing&quot;</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="n">false</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;boolean&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;allele-frequency-cutoff&quot;</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span> <span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;float&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;input-vcf&quot;</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span> <span class="p">:</span> <span class="s2">&quot;gs://bucket-name/input.vcf&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;google-cloud-path&quot;</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;output-name&quot;</span> <span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;value&quot;</span> <span class="p">:</span> <span class="s2">&quot;gs://bucket-name/input.annotated.vcf&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span> <span class="p">:</span> <span class="s2">&quot;google-cloud-path&quot;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="google_setup.html" class="btn btn-neutral float-left" title="Google Setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Brad Bowles.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
