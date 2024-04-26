@@ -83,7 +83,7 @@ Cleaning Up
     
     gcloud compute instances list --region=us-west1
 
-3. Clean up Google Cloud Bucket (*Optional*).
+3. Clean up Google Cloud Bucket (*optional*).
 
 Your Google Cloud bucket will accumulate storage charges over time, especially for large files. If you are done with your project, I recommend cleaning up large files or deleting the bucket entirely to save on storage costs.
 

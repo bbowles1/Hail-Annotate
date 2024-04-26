@@ -38,25 +38,3 @@ Many thanks to the Hail team, especially Dan King, who's own `Hail Cloud tutoria
    Overview <overview>
    Google Cloud Setup <google_setup>
    Launching Annotation <launching_annotation>
-
-
-TDL
-==================
-3. Either make it clear that I am hard-filtering to rare variants, or provide an input parameter that allows user to customize this param.
-
-4. Add notes on input VCF:
-Must be .tsv and have chrom, ref, pos, alt columns as a minimum
-
-
-Here's a good example of the type of input I should aim for:
-gcloud dataproc jobs submit pyspark \
-    --cluster=my-dataproc-cluster \
-    --region=my-region \
-    --py-files=gs://path-to/annotation.py \
-    --files=gs://path-to/input.vcf,gs://path-to/config.json \
-    gs://path-to/annotation.py
-
-
-Additional features
-This module could also use logging support
-I notice that the output is keyed by variant when I would prefer it be keyed by original VCF columns - test w/ current gnomad-test.vcf
