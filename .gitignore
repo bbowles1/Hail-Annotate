@@ -1,13 +1,3 @@
-# sphinx
-docs/Makefile
-.buildinfo
-docs/toctree/
-docs/html/_*
-*.doctree
-*.pickle
-*.inv
-*.js
-
 # test files
 test/
 
