@@ -12,3 +12,6 @@ Configure the config.json and launch an annotation task using:
 
 ### Service Account Permissions
 This workflow assumes that your service account has "storage.objectAdmin" permission to a bucket used for input and output.
+
+### Full Documentation
+Full documentation (including a guide on setting up your Google Cloud analysis) can be found at [https://bbowles1.github.io/Hail-Annotate/index.html](https://bbowles1.github.io/Hail-Annotate/index.html).
