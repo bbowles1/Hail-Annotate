@@ -38,5 +38,5 @@ The Hail team has done a great job of `documenting their tools <https://hail.is/
 
 Why Google Cloud?
 -----------------
-The Hail team has taken great care to make their library work well within the Google Cloud computation environment. For computation tasks involving very many individuals, where the computing requirements would exceed those provided by a single computer, Google cloud provides a scalable solution with many times more computing power. Furthermore, all Hail datasets are currently `hosted on the Google cloud. <gs://gcp-public-data--gnomad>`_, which means you do not have to manually download and host the many gigabytyes of Hail data that you may require for a project.
+The Hail team has taken great care to make their library work well within the Google Cloud computation environment. For computation tasks involving very many individuals, where the computing requirements would exceed those provided by a single computer, Google cloud provides a scalable solution with many times more computing power. Furthermore, all Hail datasets are currently `hosted on the Google cloud <gs://gcp-public-data--gnomad>`_, which means you do not have to manually download and host the many gigabytyes of Hail data that you may require for a project.
 
