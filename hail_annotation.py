@@ -258,6 +258,62 @@ def import_config(gcs_path):
 #                                 #
 # ================================#
 
+def read_vcf(path):
+    """Import VCF with support for CHROM or #CHROM header
+
+    :param path: GCP path to VCF
+    :type path: str
+    :return: Imported VCF
+    :rtype: pd.DataFrame
+    """
+
+    # read header
+    df = pd.read_csv(path,
+                     sep='\t',
+                     nrows=2000,
+                     header=None)
+    
+    # parse for #CHROM field
+    for row in df.itertuples():
+        if any(['#CHROM' in str(i) for i in row[1:]]):
+            cols = list(row)[1:]
+            hash_header=True
+            break
+        if any(['CHROM' in str(i) for i in row[1:]]):
+            cols = list(row)[1:]
+            hash_header=False
+            break
+
+    # import full VCF
+    df = pd.read_csv(path,
+                     sep='\t',
+                     comment='#',
+                     header=None,
+                     names=cols)
+    
+    # cut duplicate header fields
+    if hash_header == False:
+        df = df.iloc[1:]
+    
+    return df
+
+
+
+def is_vcf(input_df):
+    """Return True if input contains minimum VCF columns
+    (CHROM, POS, REF, ALT).
+
+    :return: True if VCF file contains minimum required headers.
+    :rtype: bool
+    """    
+    
+    # VCF cols are missing
+    if not all([i in input_df.columns for i in ["CHROM","POS","REF","ALT"]]):
+        return False
+        
+    else:
+        return True
+
 
 def fake_vcf(input_df,
              use_chr=True):
@@ -352,22 +408,6 @@ def fake_vcf(input_df,
     
     # return output path for reference
     return(newfile)
-
-
-def is_vcf(input_df):
-    """Return True if input contains minimum VCF columns
-    (CHROM, POS, REF, ALT).
-
-    :return: True if VCF file contains minimum required headers.
-    :rtype: bool
-    """    
-    
-    # VCF cols are missing
-    if not all([i in input_df.columns for i in ["CHROM","POS","REF","ALT"]]):
-        return False
-        
-    else:
-        return True
     
 
 def add_db_annotations(vcf, db, config):
@@ -551,7 +591,7 @@ def execute_annotation(config_path):
     print("Imported config.")
 
     # read VCF as pandas df
-    vcf = pd.read_csv(config['script-params']['input-vcf']['value'], sep='\t')
+    vcf = read_vcf(config['script-params']['input-vcf']['value'])
 
     # run annotation script
     hail_annotate(vcf, config)
