@@ -11,8 +11,8 @@ The following steps are required to launch an annotation task:
 
 ```
     hailctl dataproc submit gnomad-test /local/path/to/hail_annotation.py \ 
-        --config gs://hail-annotation-scripts/test_config.json \ 
-        --region us-west1
+        --config gs://bucket/config.json \ 
+        --region <region, ie us-west-1>
 ```
 
 ### Service Account Permissions
