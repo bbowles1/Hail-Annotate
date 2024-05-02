@@ -566,7 +566,7 @@ def hail_annotate(input_df, config):
     vcf = vcf.key_rows_by(vcf.variant)
     
     # export table to HDFS storage
-    export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).rows()
+    export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).entries()
     output_path = 'hdfs:///tmp/hail-annotate-output.vcf'
     export.export(output_path)
     print(f"Wrote annotated VCF to {output_path}.")
