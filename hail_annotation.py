@@ -562,13 +562,10 @@ def hail_annotate(input_df, config):
     # construct a variant expression
     vcf = vcf.annotate_rows(variant=vcf.locus.contig + ':' + hl.format('%s', vcf.locus.position) + vcf.alleles[0] + '>' + vcf.alleles[1])
     
-    # key by variant expression, drop other keys
-    vcf = vcf.key_rows_by(vcf.variant)
-    
     # export table to HDFS storage
-    export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax).entries()
+    export = vcf.select_entries(vcf.efreq, vcf.epopmax, vcf.gfreq, vcf.gpopmax)
     output_path = 'hdfs:///tmp/hail-annotate-output.vcf'
-    export.export(output_path)
+    hl.export_vcf(export, output_path)
     print(f"Wrote annotated VCF to {output_path}.")
 
 
