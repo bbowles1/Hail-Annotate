@@ -1,5 +1,7 @@
 # Variant Annotation with Hail
 
+[Hail Annotate Docs](https://bbowles1.github.io/Hail-Annotate/index.html).
+
 **Hail-Annotate** is a Python-based wrapper for Hail which is designed to streamline the annotation of human genetic variants. Users will need to provide an input variant call format (VCF) file, and will receive output annotated with allele frequency information from the [GnomAD database](https://gnomad.broadinstitute.org/).
 
 The following steps are required to launch an annotation task:
