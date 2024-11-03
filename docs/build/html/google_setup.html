@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Setup &mdash; Hail-Annotate 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=2389946f"></script>
+        <script src="_static/doctools.js?v=888ff710"></script>
+        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Launching Computing Tasks" href="launching_annotation.html" />
+    <link rel="prev" title="Overview" href="overview.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Hail-Annotate
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Google Cloud Setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#minimizing-google-cloud-costs">Minimizing Google Cloud Costs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setting-up-your-project">Setting Up Your Project</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#enabling-a-service-account">Enabling a Service Account</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#additional-cloud-resources">Additional Cloud Resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="launching_annotation.html">Launching Annotation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html#config-utilities">Config Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html#hail-utilities">Hail Utilities</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Hail-Annotate</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Google Setup</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/google_setup.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="google-setup">
+<h1>Google Setup<a class="headerlink" href="#google-setup" title="Permalink to this heading"></a></h1>
+<p>Our goal is to take an input VCF file and annotate it with allele frequency information from the GnomAD database. To do this, we require both a Google Cloud account and a Google Cloud bucket to hold our input files.</p>
+<section id="minimizing-google-cloud-costs">
+<h2>Minimizing Google Cloud Costs<a class="headerlink" href="#minimizing-google-cloud-costs" title="Permalink to this heading"></a></h2>
+<p>Creating a Google Cloud account will grant you $300 in free credits. My experience annotationg a large VCF file (500k variants) with both genome and exome allele frequency information cost $40 out of these $300 in credits. Your costs may vary depending on the size of your input file(s), so carefully monitor your computing costs.</p>
+<p>Google will charge you for the following:</p>
+<ol class="upperalpha simple">
+<li><p>Transferring data from regions where GnomAD data is hosted (US-based servers) to regions where it is not.</p></li>
+<li><p>Storing data in a Google Cloud bucket.</p></li>
+<li><p>Running Google Cloud computational tasks.</p></li>
+</ol>
+<p>Point A can be very expensive if you are not careful. GnomAD uses “requestor pays buckets” which charge you to transfer data from regions where GnomAD is hosted to regions where it is not. GnomAD data is freely available in all US Google Cloud regions. To avoid data transfer costs, you will want to set your region to a US location when initiating a Google Cloud computing task <em>even if you are not located in the US</em>. I am using the region <code class="docutils literal notranslate"><span class="pre">us-west-2</span></code> for all examples, although there are many US regions to choose from.</p>
+<p>It is harder to minimize our costs for points B and C, but I would generally recommend trying to write efficient code and be wary of storing large files in Google Cloud buckets for extended periods of time. Additionally, when importing GnomAD data, use the GnomAD cloud buckets hosted on Google rather than copying reference data to your own Google Cloud bucket.</p>
+</section>
+<section id="setting-up-your-project">
+<h2>Setting Up Your Project<a class="headerlink" href="#setting-up-your-project" title="Permalink to this heading"></a></h2>
+<p>Creating an account on Google Cloud is straightforward and, importantly, will grant us $300 in free computation credits. Users will need to do the following:</p>
+<p><strong>1. Sign up for Google Cloud.</strong> Users can navigate to the <a class="reference external" href="https://console.cloud.google.com/">Google Cloud console</a> and sign up for an account using any email address (you do not need a Gmail account to do so).</p>
+<p><strong>2. Install the Google Cloud SDK.</strong> This project will make use of the Google Cloud SDK. While there are some tasks (such as enabling billing or assessing data usage) which are more convenient to do using the Google Cloud console, many of the tasks of uploading data and initiating computing tasks are better done from the command line. You can follow instructions <a class="reference external" href="https://cloud.google.com/sdk/docs/install">here to install the Google Cloud SDK on your operating system of choice</a>.</p>
+<p><strong>3. Create a Google Cloud Project.</strong> Create a new project, which we will use to initiate compute instances and monitor billing. We can use the Google Cloud CLI to do this:</p>
+<p><strong>4. Enable billing on your Cloud Project.</strong> Within the Cloud console, you can select the “Billing” section (for me, this is hosted on the middle right-side of the console). From there, you can follow <a class="reference external" href="https://cloud.google.com/billing/docs/how-to/modify-project">Google’s instructions to enable billing for your account.</a> Cloud billing will be required to A) launch Google Cloud computation tasks, and B) access GnomAD reference data. This is true even if you are using Google Cloud’s free credits.</p>
+<p><em>Note:</em> Google does not allow you to set limits on Cloud billing, so I recommend monitoring your usage carefully and testing all code extensively on small test sets. For this project, I opted to test my annotation pipeline by subsetting my dataset to only contain variants located on chromosome 22, before expanding my analysis to variants on any human chromosome. For a breakdown of Google Cloud billing costs, please consult <a class="reference external" href="https://github.com/danking/hail-cloud-docs">this excellent guide</a> from Dan King on how to estimate your cloud billing costs.</p>
+<p><strong>5. Set a Default Region for your Google Cloud Project.</strong> I have run into the issue where I cannot find a Google Cloud instance unless I specfiy a region to search within. Additionally, at the time of writing users will face significant data transfer costs if they request GnomAD data from somewhere outside of the US. For these reasons, I recommend that you A) set a default, US-based region for your Google Cloud project, and B) specify this region when launching DataProc clusters or other computing tasks. I opted to set my Google Cloud Region as <code class="docutils literal notranslate"><span class="pre">us-west-1.</span></code> I was able to set this as the default for my project using:</p>
+<p><strong>6. Create a Google Cloud Bucket.</strong> For this project, we will require a Google Cloud bucket to host our input VCF data, our Python scripts, and our pipeline output. Once you have registered for Google Cloud, you will need to create a new bucket for your project. You can do this from within the Google Cloud console by searching “Cloud Storage” or navigating to <a class="reference external" href="https://console.cloud.google.com/storage/">this link</a>. Users can also create a Cloud Bucket from the command line using: <code class="docutils literal notranslate"><span class="pre">gsutil</span> <span class="pre">mb</span> <span class="pre">gs://&lt;YOUR_BUCKET_NAME&gt;</span></code>.</p>
+<p><strong>7. Tag your Google Cloud Bucket.</strong> Google Cloud Billing will show storage costs, but does not break them down by bucket. Users will need to tag their buckets, and then use these tags to monitor which billing charges correspond to which bucket. Each tag is a <code class="docutils literal notranslate"><span class="pre">key:value</span></code> pair, for example <code class="docutils literal notranslate"><span class="pre">bucket:gnomad_annotation</span></code>. Users can tag their buckets from the command line using:</p>
+</section>
+<section id="enabling-a-service-account">
+<h2>Enabling a Service Account<a class="headerlink" href="#enabling-a-service-account" title="Permalink to this heading"></a></h2>
+<p>We will be using Google’s Dataproc computing instances for our annotation pipeline.</p>
+<p>Our previous steps created a Google Cloud account with the administrator role. However, Google will not allow you to run Dataproc computing tasks using this administrator role, as this poses a potential security risk to do so. Google instead asks you to use service accounts, which have a narrower set of permissions than the full administrator account, to run computing tasks. If you initiate a Google compute instance without specifying a service account, Google will create a service account automatically and use it to run the Dataproc instance. However, this default account will <em>not</em> be able to access your Google Cloud bucket, or the input VCF data contained within it.</p>
+<p>To solve this issue, we will create a service account and use it to run our computing tasks. The steps are below:</p>
+<ol class="arabic simple">
+<li><p>Creating a service account. We will use the Google Cloud CLI to make a new service account, but this process can also be done from within the Cloud console if you select the tab for “IAM Permissions.” The following command creates a new service account:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gcloud<span class="w"> </span>iam<span class="w"> </span>service-accounts<span class="w"> </span>create<span class="w"> </span>test-service-account<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--description<span class="o">=</span><span class="s2">&quot;service account for hail annotation&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--display-name<span class="o">=</span><span class="s2">&quot;test-service-account&quot;</span>
+</pre></div>
+</div>
+<p>You can view available service account roles using <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">iam</span> <span class="pre">service-accounts</span> <span class="pre">list</span></code>.</p>
+<ol class="arabic simple" start="2">
+<li><p>Give your service account the “storage.objectAdmin” role to allow it to view Google Cloud buckets within your project.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gcloud<span class="w"> </span>projects<span class="w"> </span>add-iam-policy-binding<span class="w"> </span>your-project-name<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--member<span class="o">=</span><span class="s2">&quot;serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--role<span class="o">=</span><span class="s2">&quot;roles/storage.objectAdmin&quot;</span>
+</pre></div>
+</div>
+<p><em>Note:</em> I tried multiple approaches that used a stricter set of permissions for my service account. I initially restrictied my account to have storage.objectViewer and storage.objectCreator roles but found that this interfered with output file transfer from Dataproc’s HDFS storage to GCP. Your service account must be able to read and write objects to GCP, and also delete temporary cache files created during the Dataproc HDFS to GCP transfer. I feel that storage.objectAdmin strikes a balance between restricting service account roles and enabling the functionality needed for efficient data transfer. If you’re concerned about this approach, you can try creating two input buckets: one for input data (which the service account has storage.objectViewer access to) and another for output data (which the service account has storage.objectAdmin access to).</p>
+<ol class="arabic simple" start="3">
+<li><p>Give your service account the “dataproc.worker” role to allow it to initiate Dataproc instances.</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gcloud<span class="w"> </span>projects<span class="w"> </span>add-iam-policy-binding<span class="w"> </span>your-project-name<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--member<span class="o">=</span><span class="s2">&quot;serviceAccount:test-service-account@your-project-name.iam.gserviceaccount.com&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--role<span class="o">=</span><span class="s2">&quot;roles/dataproc.worker&quot;</span>
+</pre></div>
+</div>
+<p>If you need to list your available service accounts, you can use <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">auth</span> <span class="pre">list</span></code> to do so. You can list available projects using <code class="docutils literal notranslate"><span class="pre">gcloud</span> <span class="pre">projects</span> <span class="pre">list</span></code>.</p>
+<p>In the &lt;LINK TO NEXT PAGE&gt; page, we will use this service account to launch cloud annotation tasks.</p>
+</section>
+<section id="additional-cloud-resources">
+<h2>Additional Cloud Resources<a class="headerlink" href="#additional-cloud-resources" title="Permalink to this heading"></a></h2>
+<p>Dan King, formerly of the Hail Team, has a great <a class="reference external" href="https://github.com/danking/hail-cloud-docs/blob/master/how-to-cloud.md">primer for using Hail on Google Cloud</a>. His example walks you through the basics of initiating a Dataproc instance and launching a simple annotation task.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="overview.html" class="btn btn-neutral float-left" title="Overview" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="launching_annotation.html" class="btn btn-neutral float-right" title="Launching Computing Tasks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Brad Bowles.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
