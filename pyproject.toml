@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "hail-annotate"
+version = "0.1.0"
+description = ""
+authors = ["Brad Bowles"]
+license = "Apache v2"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+hail = "^0.2.126"
+spark = "^0.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
